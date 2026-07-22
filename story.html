@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>그리움 — 어르신의 하루를 가족에게</title>
+<title>그리움 — 이야기 흐름 (자세히)</title>
 <meta name="description" content="주간보호센터 어르신이 만든 작품을 가족에게 남기는 서비스 — 5분 설문">
 
 <style>
@@ -196,19 +196,6 @@
     border:1px solid var(--accent); border-radius:4px; color:var(--accent); font-weight:700;
     font-size:.83rem; overflow-x:auto; white-space:nowrap}
 
-  /* 설명 화면 */
-  .ex{display:flex; gap:var(--s3); padding:var(--s4) 0; border-top:1px solid var(--line)}
-  .ex:first-of-type{border-top:0; padding-top:var(--s2)}
-  .ex .no{flex:none; width:2rem; height:2rem; border-radius:50%; background:var(--accent);
-    color:#fff; font-weight:700; display:grid; place-items:center; font-size:.95rem; margin-top:.15rem}
-  .ex .bd{flex:1; min-width:0}
-  .ex h3{font-family:var(--display); font-size:1.25rem; margin:0 0 .4rem; line-height:1.4}
-  .ex p{margin:0 0 var(--s2); color:var(--ink-2); font-size:.97rem}
-  .ex .vis{margin-top:.6rem}
-  .more{display:block; text-align:center; margin-top:var(--s4); padding:.8rem;
-    border:1px dashed var(--line); border-radius:4px; color:var(--muted);
-    text-decoration:none; font-size:.9rem}
-  .more:hover{border-color:var(--accent); color:var(--accent)}
   .result{background:var(--surface-2); border:1px solid var(--line); border-radius:4px;
     padding:var(--s3); font-size:.83rem; line-height:1.6; white-space:pre-wrap;
     max-height:18rem; overflow-y:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -280,11 +267,11 @@
   var draft = {img:null,raw:null,name:null,memo:"",fixed:false};
 
   /* ── 단계 ── */
-  var STEPS = ["intro","q0","group","explain","after","end","done"];
+  var STEPS = ["story"];
   var step = 0;
   function cur(){ return STEPS[step]; }
   function progress(){
-    var shown = ["q0","group","explain","after","end"];
+    var shown = [];
     var i = shown.indexOf(cur());
     if(i < 0){ bar.hidden = true; return; }
     bar.hidden = false;
@@ -558,94 +545,6 @@
     if(s.quote)   host.appendChild(el("blockquote","quote","“"+s.quote[0]+"”<cite>"+s.quote[1]+"</cite>"));
   }
 
-  /* ── 설명 화면 (조작 없음) ── */
-  function exStep(host, no, title, desc, visual){
-    var box = el("div","ex");
-    box.appendChild(el("div","no", String(no)));
-    var bd = el("div","bd");
-    bd.appendChild(el("h3",null,title));
-    bd.appendChild(el("p",null,desc));
-    if(visual){ var v=el("div","vis"); visual(v); bd.appendChild(v); }
-    box.appendChild(bd);
-    host.appendChild(box);
-  }
-
-  function renderExplain(host){
-    exStep(host, 1, "어르신이 센터에서 그림을 그립니다",
-      "주간보호센터에서는 미술·원예·종이접기 같은 프로그램이 매주 열립니다. 다 그리시면 <b>아래 이름칸에 이름을 적어</b> 내십니다.",
-      function(v){
-        var g = el("div","grid");
-        WITH_NAME.forEach(function(src,i){
-          var it=el("div","item");
-          var im=document.createElement("img"); im.src=src; im.alt="어르신이 그린 그림 예시 "+(i+1);
-          it.appendChild(im); g.appendChild(it);
-        });
-        v.appendChild(g);
-        v.appendChild(el("div","note","손이 떨려 못 쓰시는 분은 직원이 대신 적어 드립니다."));
-      });
-
-    exStep(host, 2, "직원이 걷으면서 사진 한 장을 찍습니다",
-      "지금은 이 작품들이 벽에 붙었다가 <b>한 달쯤 뒤에 버려집니다.</b> 버리기 전에 한 장만 찍어두는 것이 전부입니다. 누구 것인지는 <b>명단에서 한 번 누르면</b> 됩니다.",
-      function(v){
-        var p = el("div","phone");
-        p.appendChild(el("h3",null,"누구 것인가요?"));
-        var im=document.createElement("img"); im.className="shot"; im.src=WITH_NAME[0]; im.alt="이름칸이 보이는 작품";
-        p.appendChild(im);
-        var names=el("div","names");
-        ROSTER.slice(0,4).forEach(function(n,i){
-          var b=el("button",null,n); b.type="button"; b.disabled=true;
-          if(i===0) b.className="sel";
-          names.appendChild(b);
-        });
-        p.appendChild(names);
-        p.appendChild(el("div","note","타이핑은 하지 않습니다. 한 번 누르면 끝입니다."));
-        v.appendChild(p);
-      });
-
-    exStep(host, 3, "이름칸은 자동으로 잘려나갑니다",
-      "누구 것인지 확인이 끝나면, <b>사진에서 실명이 사라집니다.</b> 어르신 이름이 밖으로 나가지 않게 하기 위해서입니다.",
-      function(v){
-        var ba = el("div","beforeafter");
-        var b1=el("div","ba"); b1.appendChild(el("div","h","찍은 그대로"));
-        var i1=document.createElement("img"); i1.src=WITH_NAME[0]; i1.alt="이름칸이 있는 사진"; b1.appendChild(i1);
-        var b2=el("div","ba out"); b2.appendChild(el("div","h","저장되는 것"));
-        var i2=document.createElement("img"); i2.src=CROPPED[0]; i2.alt="이름칸이 잘려나간 사진"; b2.appendChild(i2);
-        ba.appendChild(b1); ba.appendChild(b2);
-        v.appendChild(ba);
-      });
-
-    exStep(host, 4, "가족은 늘 오던 문자에서 봅니다",
-      "앱을 깔지 않습니다. 가입하지 않습니다. 센터가 <b>지금도 보내고 있는 공지</b>에 주소 한 줄만 붙습니다.",
-      function(v){
-        var m=el("div","msg");
-        m.appendChild(el("div","from","햇살주간보호센터"));
-        m.appendChild(el("div",null,"이번 주에는 <b>원예활동</b>과 <b>한지공예</b>를 진행했습니다.<br>다음 주에는 어버이날 행사가 예정되어 있습니다."));
-        m.appendChild(el("div","link","🔗 김순자 어르신이 만드신 것 보기"));
-        v.appendChild(m);
-      });
-
-    exStep(host, 5, "그렇게 쌓입니다",
-      "한 장씩은 대수롭지 않습니다. 그런데 <b>모이면 어머니가 어떻게 지내셨는지가 보입니다.</b> 이게 저희가 만들려는 것입니다.",
-      function(v){
-        var g=el("div","grid");
-        records.forEach(function(r){
-          var it=el("div","item");
-          var im=document.createElement("img"); im.src=r.img; im.alt=r.name+" 어르신의 작품"; it.appendChild(im);
-          var cap=el("div","cap");
-          cap.appendChild(el("div","nm",r.name));
-          cap.appendChild(el("div","mm",r.memo||"—"));
-          it.appendChild(cap); g.appendChild(it);
-        });
-        v.appendChild(g);
-        v.appendChild(el("div","note","훗날 이것이 어머니를 기억하는 자리가 됩니다."));
-      });
-
-    var a = document.createElement("a");
-    a.className = "more"; a.href = "story.html"; a.target = "_blank"; a.rel = "noopener";
-    a.textContent = "더 자세한 화면이 궁금하시면 여기를 눌러주세요 (선택 · 새 창)";
-    host.appendChild(a);
-  }
-
   /* ── 답변 정리 ── */
   function summarize(){
     var L=["[그리움 설문 응답]"];
@@ -696,7 +595,7 @@
   function render(){
     var c=cur();
     view.innerHTML=""; noteEl.innerHTML=""; progress();
-    subEl.textContent = "어르신의 하루를 가족에게";
+    subEl.textContent = (c==="story") ? "이야기 흐름" : "어르신의 하루를 가족에게";
 
     if(c==="intro"){
       view.appendChild(el("p","eyebrow","5분 설문"));
@@ -730,12 +629,22 @@
       return;
     }
 
-    if(c==="explain"){
-      view.appendChild(el("p","eyebrow","이런 서비스입니다"));
-      view.appendChild(el("h2",null,"만드신 것이 그냥 버려지지 않게"));
-      view.appendChild(el("p","lede","다섯 장면입니다. <b>아무것도 누르지 않으셔도 됩니다.</b> 쭉 내려서 보시고 다음으로 가시면 됩니다."));
-      renderExplain(view);
-      foot([{label:"이전",fn:prev,ghost:true},{label:"다 봤습니다",fn:next}]);
+    if(c==="storyintro"){
+      view.appendChild(el("p","eyebrow","이제 보여드립니다"));
+      view.appendChild(el("h2",null,"준비 중인 화면을 한번 봐주세요"));
+      view.appendChild(el("p","lede","다음 화면부터 <b>이야기 흐름</b>이 나옵니다. 위에서 <b>현장 관점</b>과 <b>가족 관점</b>을 바꿔가며 보실 수 있고, 몇몇 화면은 실제로 눌러볼 수 있습니다."));
+      view.appendChild(el("div","flag unknown","<span class=\"k\">부탁</span><span>다 이해하려 애쓰지 마세요. <b>“어?” 하고 걸리는 부분</b>만 기억해 두시면 됩니다. 그게 저희에게 가장 필요한 답입니다.</span>"));
+      view.appendChild(el("div","skip","2분이면 됩니다. 다 보시면 아래 “다 봤습니다”를 눌러주세요."));
+      foot([{label:"이전",fn:prev,ghost:true},{label:"화면 보러 가기",fn:next}]);
+      return;
+    }
+
+    if(c==="story"){
+      renderStory(view);
+      noteEl.innerHTML="올리신 사진은 이 브라우저 안에만 있으며 어디로도 전송되지 않습니다.";
+      foot([{label:"←",fn:function(){goScene(sidx-1);},ghost:true,off:sidx===0},
+            {label:"다음 장면 →",fn:function(){goScene(sidx+1);},ghost:true,off:sidx===list.length-1},
+            {label:"설문으로 돌아가기",fn:function(){ location.href="index.html"; }}]);
       return;
     }
 
