@@ -1,4 +1,10 @@
-<title>그리움 — 이야기 흐름</title>
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>그리움 — 어르신의 하루를 가족에게</title>
+<meta name="description" content="주간보호센터 어르신이 만든 작품을 가족에게 남기는 서비스 — 5분 설문">
 
 <style>
   :root{
@@ -10,7 +16,7 @@
     --shadow:0 1px 2px rgba(28,32,31,.06), 0 8px 24px rgba(28,32,31,.06);
     --display:Batang,"Nanum Myeongjo",BatangChe,"Apple SD Gothic Neo",serif;
     --body:"Malgun Gothic","Apple SD Gothic Neo",system-ui,-apple-system,"Segoe UI",sans-serif;
-    --s1:.5rem; --s2:.875rem; --s3:1.25rem; --s4:2rem; --s5:3rem;
+    --s2:.875rem; --s3:1.25rem; --s4:2rem; --s5:3rem;
   }
   @media (prefers-color-scheme:dark){
     :root{
@@ -26,105 +32,139 @@
     --ink:#E8EBE9; --ink-2:#B6BDBA; --muted:#8A928E; --line:#333B39;
     --accent:#8FB6CE; --accent-soft:#1E2C36; --crayon:#D9AE4E; --crayon-soft:#2C2617;
     --alert:#D98878; --alert-soft:#33211D;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
   }
   :root[data-theme="light"]{
     --ground:#F4F5F3; --surface:#FFFFFF; --surface-2:#EAECE9;
     --ink:#1C201F; --ink-2:#454C49; --muted:#6E7672; --line:#D5D9D5;
     --accent:#2F4E63; --accent-soft:#E4EBF0; --crayon:#B0801E; --crayon-soft:#F5EDD9;
     --alert:#8C3A2E; --alert-soft:#F7E9E6;
-    --shadow:0 1px 2px rgba(28,32,31,.06), 0 8px 24px rgba(28,32,31,.06);
   }
 
   *{box-sizing:border-box}
-  body{margin:0; background:var(--ground); color:var(--ink);
-    font-family:var(--body); font-size:16px; line-height:1.7; -webkit-font-smoothing:antialiased}
-  .wrap{max-width:1080px; margin:0 auto; padding:var(--s4) var(--s3) var(--s5)}
+  html,body{margin:0}
+  body{background:var(--ground); color:var(--ink);
+    font-family:var(--body); font-size:16px; line-height:1.7; -webkit-font-smoothing:antialiased;
+    padding-bottom:5.5rem}
+  .wrap{max-width:1080px; margin:0 auto; padding:var(--s3) var(--s3) var(--s4)}
 
-  .top{display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--s2) var(--s3); margin-bottom:var(--s3)}
-  .brand{font-family:var(--display); font-size:1.75rem; letter-spacing:.06em; margin:0}
-  .brand small{display:block; font-family:var(--body); font-size:.75rem; letter-spacing:.14em;
+  .bar{position:sticky; top:0; z-index:20; background:var(--ground); padding-top:.6rem}
+  .bar .track{height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden}
+  .bar .fill{height:100%; background:var(--accent); width:0; transition:width .3s}
+  .bar .lbl{font-size:.72rem; color:var(--muted); letter-spacing:.08em; margin-top:.4rem}
+
+  .top{display:flex; flex-wrap:wrap; align-items:baseline; gap:.5rem var(--s3); margin:var(--s3) 0}
+  .brand{font-family:var(--display); font-size:1.6rem; letter-spacing:.06em; margin:0}
+  .brand small{display:block; font-family:var(--body); font-size:.72rem; letter-spacing:.12em;
     color:var(--muted); font-weight:600; margin-top:.2rem}
-  .stamp{margin-left:auto; font-size:.72rem; letter-spacing:.1em; color:var(--muted);
-    border:1px solid var(--line); border-radius:2px; padding:.3rem .6rem}
 
-  /* 관점 전환 */
-  .persp{display:flex; gap:.4rem; margin-bottom:var(--s2); flex-wrap:wrap}
-  .persp button{flex:1; min-width:150px; font:inherit; font-size:.88rem; cursor:pointer;
-    border:1px solid var(--line); background:var(--surface); color:var(--ink-2);
-    border-radius:3px; padding:.6rem .8rem; text-align:left; line-height:1.4; transition:.15s}
-  .persp button:hover{border-color:var(--accent)}
-  .persp button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
-  .persp b{display:block; font-size:.95rem}
-  .persp span{font-size:.75rem; opacity:.85}
-
-  .rail{display:flex; gap:.375rem; flex-wrap:wrap; margin-bottom:var(--s3)}
-  .rail button{font:inherit; font-size:.8rem; cursor:pointer; border:1px solid var(--line);
-    background:var(--surface); color:var(--muted); border-radius:2px; padding:.4rem .7rem; transition:.15s}
-  .rail button:hover{border-color:var(--accent); color:var(--ink)}
-  .rail button[aria-current="true"]{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700}
-
-  .card{background:var(--surface); border:1px solid var(--line); border-radius:3px;
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:4px;
     box-shadow:var(--shadow); padding:var(--s4) var(--s3)}
   @media (min-width:720px){ .card{padding:var(--s5) var(--s4)} }
 
   .eyebrow{font-size:.72rem; letter-spacing:.16em; font-weight:700; color:var(--accent); margin:0 0 .5rem}
-  h2{font-family:var(--display); font-size:1.9rem; line-height:1.35; margin:0 0 var(--s2);
+  h2{font-family:var(--display); font-size:1.7rem; line-height:1.35; margin:0 0 var(--s2);
     text-wrap:balance; letter-spacing:.01em}
+  @media (min-width:720px){ h2{font-size:2rem} }
+  .lede{font-size:1.02rem; color:var(--ink-2); max-width:62ch; margin:0 0 var(--s3)}
   .who{display:inline-block; font-size:.75rem; font-weight:700; letter-spacing:.08em;
     background:var(--surface-2); color:var(--ink-2); padding:.25rem .6rem; border-radius:2px; margin-bottom:var(--s3)}
-  .lede{font-size:1.05rem; color:var(--ink-2); max-width:62ch; margin:0 0 var(--s3)}
 
-  .stage{background:var(--ground); border:1px dashed var(--line); border-radius:3px;
+  .q{border-top:1px solid var(--line); padding:var(--s3) 0}
+  .q.first{border-top:0; padding-top:0}
+  .q .t{font-weight:700; font-size:1.05rem; line-height:1.5; margin-bottom:.35rem}
+  .q .t .st{color:var(--crayon)}
+  .q .h{font-size:.85rem; color:var(--muted); margin-bottom:.7rem; line-height:1.5}
+  .opts{display:flex; flex-direction:column; gap:.45rem}
+  .opt{display:flex; align-items:flex-start; gap:.6rem; cursor:pointer;
+    border:1px solid var(--line); background:var(--surface); border-radius:4px;
+    padding:.7rem .85rem; font-size:.97rem; line-height:1.45; transition:.12s}
+  .opt:hover{border-color:var(--accent)}
+  .opt.on{background:var(--accent-soft); border-color:var(--accent); font-weight:700}
+  .opt .mk{flex:none; width:1.1rem; height:1.1rem; margin-top:.2rem; border:1.5px solid var(--line);
+    border-radius:50%; display:grid; place-items:center}
+  .opt.multi .mk{border-radius:3px}
+  .opt.on .mk{border-color:var(--accent); background:var(--accent)}
+  .opt.on .mk::after{content:""; width:.4rem; height:.4rem; background:#fff; border-radius:50%}
+  .q input[type=text], .q textarea{width:100%; font:inherit; font-size:.97rem;
+    padding:.7rem .8rem; border:1px solid var(--line); border-radius:4px;
+    background:var(--ground); color:var(--ink); resize:vertical}
+  .q textarea{min-height:5.5rem}
+  .q input:focus, .q textarea:focus{border-color:var(--accent); outline:none}
+  .skip{font-size:.82rem; color:var(--muted); margin-top:var(--s3)}
+
+  .foot{position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:var(--surface); border-top:1px solid var(--line); padding:.7rem var(--s3);
+    box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+  .foot .in{max-width:1080px; margin:0 auto; display:flex; gap:.5rem; align-items:center}
+  .btn{flex:1; font:inherit; font-size:.98rem; font-weight:700; cursor:pointer;
+    padding:.85rem .5rem; border:1px solid var(--accent); border-radius:4px;
+    background:var(--accent); color:#fff; transition:.12s}
+  .btn:hover:not(:disabled){opacity:.9}
+  .btn.ghost{background:var(--surface); color:var(--ink-2); border-color:var(--line); flex:0 1 auto; padding:.85rem .9rem}
+  .btn:disabled{opacity:.35; cursor:not-allowed}
+
+  .persp{display:flex; gap:.4rem; margin-bottom:var(--s2); flex-wrap:wrap}
+  .persp button{flex:1; min-width:150px; font:inherit; font-size:.86rem; cursor:pointer;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink-2);
+    border-radius:4px; padding:.6rem .8rem; text-align:left; line-height:1.4; transition:.12s}
+  .persp button:hover{border-color:var(--accent)}
+  .persp button[aria-pressed="true"]{background:var(--accent); border-color:var(--accent); color:#fff}
+  .persp b{display:block; font-size:.94rem}
+  .persp span{font-size:.74rem; opacity:.85}
+
+  .rail{display:flex; gap:.35rem; flex-wrap:wrap; margin-bottom:var(--s3)}
+  .rail button{font:inherit; font-size:.78rem; cursor:pointer; border:1px solid var(--line);
+    background:var(--surface); color:var(--muted); border-radius:3px; padding:.38rem .65rem; transition:.12s}
+  .rail button:hover{border-color:var(--accent); color:var(--ink)}
+  .rail button[aria-current="true"]{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700}
+
+  .stage{background:var(--ground); border:1px dashed var(--line); border-radius:4px;
     padding:var(--s3); margin:var(--s3) 0}
   .stage-label{font-size:.7rem; letter-spacing:.14em; font-weight:700; color:var(--muted); margin-bottom:var(--s2)}
 
-  .io{display:grid; gap:var(--s2); margin-top:var(--s3); font-size:.9rem}
+  .io{display:grid; gap:var(--s2); margin-top:var(--s3); font-size:.88rem}
   @media (min-width:640px){ .io{grid-template-columns:1fr 1fr} }
   .io div{border-left:2px solid var(--line); padding-left:.75rem}
   .io b{display:block; font-size:.7rem; letter-spacing:.12em; color:var(--muted); font-weight:700}
 
   .flag{display:flex; gap:.6rem; align-items:flex-start; margin-top:var(--s3);
-    padding:.75rem .9rem; border-radius:3px; font-size:.9rem; line-height:1.6}
+    padding:.75rem .9rem; border-radius:4px; font-size:.88rem; line-height:1.6}
   .flag.branch{background:var(--crayon-soft); border:1px solid var(--crayon)}
   .flag.unknown{background:var(--accent-soft); border:1px solid var(--accent)}
   .flag.safe{background:var(--alert-soft); border:1px solid var(--alert)}
   .flag .k{font-weight:700; white-space:nowrap}
   .quote{margin:var(--s3) 0 0; padding:.7rem .9rem; border-left:3px solid var(--muted);
     background:var(--surface-2); font-size:.88rem; color:var(--ink-2); line-height:1.6}
-  .quote cite{display:block; font-style:normal; font-size:.78rem; color:var(--muted); margin-top:.4rem}
+  .quote cite{display:block; font-style:normal; font-size:.76rem; color:var(--muted); margin-top:.4rem}
 
-  /* 지도 */
   .map{display:grid; gap:var(--s2); margin:var(--s3) 0}
-  .track{display:grid; grid-template-columns:auto 1fr; gap:var(--s3); align-items:center;
-    border:1px solid var(--line); border-radius:3px; padding:var(--s2) var(--s3);
+  .track2{display:grid; grid-template-columns:auto 1fr; gap:var(--s3); align-items:center;
+    border:1px solid var(--line); border-radius:4px; padding:var(--s2) var(--s3);
     background:var(--surface-2); opacity:.5}
-  .track.on{opacity:1; background:var(--accent-soft); border-color:var(--accent); border-width:2px}
-  .track .n{font-family:var(--display); font-size:1.4rem; color:var(--accent)}
-  .track .t{font-weight:700}
-  .track .d{font-size:.87rem; color:var(--ink-2)}
-  .track .tag{font-size:.7rem; letter-spacing:.1em; font-weight:700; color:var(--muted)}
-  .merge{text-align:center; font-size:.85rem; color:var(--muted); letter-spacing:.1em; padding:.4rem 0}
-  .after{border:1px dashed var(--line); border-radius:3px; padding:var(--s2) var(--s3);
-    text-align:center; color:var(--ink-2); opacity:.7}
-  .after b{font-family:var(--display); font-size:1.1rem; color:var(--ink)}
+  .track2.on{opacity:1; background:var(--accent-soft); border-color:var(--accent); border-width:2px}
+  .track2 .n{font-family:var(--display); font-size:1.35rem; color:var(--accent)}
+  .track2 .t{font-weight:700}
+  .track2 .d{font-size:.85rem; color:var(--ink-2)}
+  .track2 .tag{font-size:.7rem; letter-spacing:.1em; font-weight:700; color:var(--muted)}
+  .merge{text-align:center; font-size:.83rem; color:var(--muted); letter-spacing:.1em; padding:.4rem 0}
+  .aft{border:1px dashed var(--line); border-radius:4px; padding:var(--s2) var(--s3);
+    text-align:center; color:var(--ink-2); opacity:.75}
+  .aft b{font-family:var(--display); font-size:1.05rem; color:var(--ink)}
 
-  /* 동작 화면 */
   .phone{max-width:340px; margin:0 auto; background:var(--surface); border:1px solid var(--line);
     border-radius:14px; padding:var(--s3); box-shadow:var(--shadow)}
-  .phone h3{font-size:.95rem; margin:0 0 var(--s2); font-weight:700}
+  .phone h3{font-size:.94rem; margin:0 0 var(--s2); font-weight:700}
   .drop{border:2px dashed var(--line); border-radius:6px; padding:var(--s4) var(--s2);
-    text-align:center; color:var(--muted); cursor:pointer; transition:.15s; font-size:.9rem}
+    text-align:center; color:var(--muted); cursor:pointer; transition:.12s; font-size:.88rem}
   .drop:hover{border-color:var(--accent); color:var(--accent)}
   .drop input{display:none}
   .shot{width:100%; border-radius:4px; display:block; background:var(--surface-2)}
-
   .names{display:flex; flex-wrap:wrap; gap:.4rem; margin-top:var(--s2)}
-  .names button{font:inherit; font-size:.9rem; cursor:pointer; padding:.45rem .8rem;
-    border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:20px; transition:.15s}
+  .names button{font:inherit; font-size:.88rem; cursor:pointer; padding:.45rem .8rem;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:20px; transition:.12s}
   .names button:hover{border-color:var(--accent)}
   .names button.sel{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700}
-  .memo{width:100%; margin-top:var(--s2); font:inherit; font-size:.9rem; padding:.55rem .7rem;
+  .memo{width:100%; margin-top:var(--s2); font:inherit; font-size:.88rem; padding:.55rem .7rem;
     border:1px solid var(--line); border-radius:4px; background:var(--ground); color:var(--ink)}
   .save{width:100%; margin-top:var(--s2); font:inherit; font-weight:700; cursor:pointer;
     padding:.65rem; border:0; border-radius:4px; background:var(--accent); color:#fff}
@@ -140,469 +180,512 @@
   .ba.out .h{background:var(--alert-soft); color:var(--alert)}
   .ba img{width:100%; display:block}
 
-  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:.6rem}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(115px,1fr)); gap:.55rem}
   .item{background:var(--surface); border:1px solid var(--line); border-radius:4px; overflow:hidden}
   .item img{width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--surface-2)}
   .item .cap{padding:.45rem .55rem}
-  .item .nm{font-size:.82rem; font-weight:700}
-  .item .mm{font-size:.75rem; color:var(--muted)}
-  .daylabel{font-family:var(--display); font-size:.95rem; color:var(--muted); margin:var(--s3) 0 .6rem;
+  .item .nm{font-size:.8rem; font-weight:700}
+  .item .mm{font-size:.74rem; color:var(--muted)}
+  .daylabel{font-family:var(--display); font-size:.93rem; color:var(--muted); margin:var(--s3) 0 .6rem;
     padding-bottom:.3rem; border-bottom:1px solid var(--line)}
 
   .msg{max-width:340px; margin:0 auto; background:var(--surface); border:1px solid var(--line);
-    border-radius:10px; padding:var(--s3); box-shadow:var(--shadow); font-size:.9rem; line-height:1.65}
-  .msg .from{font-size:.75rem; color:var(--muted); font-weight:700; margin-bottom:.5rem}
+    border-radius:10px; padding:var(--s3); box-shadow:var(--shadow); font-size:.88rem; line-height:1.65}
+  .msg .from{font-size:.74rem; color:var(--muted); font-weight:700; margin-bottom:.5rem}
   .msg .link{display:block; margin-top:.7rem; padding:.55rem .7rem; background:var(--accent-soft);
     border:1px solid var(--accent); border-radius:4px; color:var(--accent); font-weight:700;
-    font-size:.85rem; overflow-x:auto; white-space:nowrap}
+    font-size:.83rem; overflow-x:auto; white-space:nowrap}
 
-  ol.q{margin:var(--s3) 0 0; padding-left:1.2rem}
-  ol.q li{margin-bottom:var(--s2); font-size:1.02rem}
-
-  .nav{display:flex; gap:var(--s2); margin-top:var(--s3)}
-  .nav button{flex:1; font:inherit; font-weight:700; cursor:pointer; padding:.75rem;
-    border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:3px; transition:.15s}
-  .nav button:hover:not(:disabled){border-color:var(--accent); color:var(--accent)}
-  .nav button:disabled{opacity:.35; cursor:not-allowed}
-  .nav button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  .result{background:var(--surface-2); border:1px solid var(--line); border-radius:4px;
+    padding:var(--s3); font-size:.83rem; line-height:1.6; white-space:pre-wrap;
+    max-height:18rem; overflow-y:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:6.5rem; z-index:40;
+    background:var(--ink); color:var(--ground); padding:.7rem 1.1rem; border-radius:4px;
+    font-size:.9rem; font-weight:700; opacity:0; pointer-events:none; transition:opacity .25s}
+  .toast.on{opacity:1}
 
   :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
   @media (prefers-reduced-motion:reduce){ *{transition:none !important} }
   footer{margin-top:var(--s4); font-size:.78rem; color:var(--muted); line-height:1.6}
 </style>
+</head>
+<body>
 
 <div class="wrap">
+  <div class="bar" id="bar" hidden>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="lbl" id="barlbl"></div>
+  </div>
+
   <div class="top">
-    <h1 class="brand">그리움<small>이야기 흐름</small></h1>
-    <span class="stamp">스토리보드 v0.2 · 일부만 실제로 동작합니다</span>
+    <h1 class="brand">그리움<small id="sub">어르신의 하루를 가족에게</small></h1>
   </div>
 
-  <div class="persp" id="persp" role="group" aria-label="관점 선택"></div>
-  <nav class="rail" id="rail" aria-label="장면 이동"></nav>
   <main class="card" id="view" tabindex="-1"></main>
-
-  <div class="nav">
-    <button id="prev" type="button">← 이전</button>
-    <button id="next" type="button" class="primary">다음 →</button>
-  </div>
-
-  <footer>
-    주간보호센터 어르신이 만든 작품을 남겨 가족에게 닿게 하는 흐름입니다.
-    위에서 <b>보는 사람의 관점</b>을 바꿔 가며 걸어볼 수 있습니다.
-    올리신 사진은 이 브라우저 안에만 있으며 어디로도 전송되지 않습니다.
-  </footer>
+  <footer id="footnote"></footer>
 </div>
 
+<div class="foot"><div class="in" id="footin"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="survey.js"></script>
 <script>
 (function(){
   "use strict";
+  var S = window.SURVEY, A = {};
+  var view = document.getElementById("view");
+  var footin = document.getElementById("footin");
+  var bar = document.getElementById("bar"), fill = document.getElementById("fill");
+  var barlbl = document.getElementById("barlbl"), subEl = document.getElementById("sub");
+  var noteEl = document.getElementById("footnote"), toast = document.getElementById("toast");
 
-  /* ── 샘플 작품: 하단에 이름칸이 붙은 버전 / 잘려나간 버전 ── */
-  function art(bg, draw, name){
-    var band = name
-      ? '<rect x="0" y="150" width="200" height="26" fill="#FFFDF5" stroke="#D8D2C2"/>'
-        + '<text x="100" y="168" font-size="14" text-anchor="middle" fill="#5A5346"'
-        + ' font-family="Batang, serif">' + name + '</text>'
-      : '';
+  function el(t,c,h){ var n=document.createElement(t); if(c)n.className=c; if(h!=null)n.innerHTML=h; return n; }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(m){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]; }); }
+
+  /* ── 그림 자료 ── */
+  function art(bg,draw,name){
+    var band = name ? '<rect x="0" y="150" width="200" height="26" fill="#FFFDF5" stroke="#D8D2C2"/>'
+      + '<text x="100" y="168" font-size="14" text-anchor="middle" fill="#5A5346" font-family="Batang, serif">'+name+'</text>' : '';
     var h = name ? 176 : 150;
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 ' + h + '">'
-      + '<rect width="200" height="150" fill="' + bg + '"/>' + draw + band + '</svg>';
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 '+h+'"><rect width="200" height="150" fill="'+bg+'"/>'+draw+band+'</svg>');
   }
   var DRAWS = [
     ['#F3EFE2','<circle cx="60" cy="52" r="22" fill="#E0A93B"/><path d="M20 120 Q70 70 120 120 T195 118" stroke="#7CA05A" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M140 118 L140 78" stroke="#8A6A3E" stroke-width="7" stroke-linecap="round"/><circle cx="140" cy="70" r="16" fill="#C96A72"/>'],
     ['#EFF1EC','<path d="M30 118 L70 50 L110 118 Z" fill="#6E8FA8"/><path d="M95 118 L128 62 L162 118 Z" fill="#8FA9BD"/><circle cx="158" cy="38" r="14" fill="#E0A93B"/>'],
     ['#F1ECEF','<path d="M100 30 C130 30 145 60 128 82 L100 118 L72 82 C55 60 70 30 100 30Z" fill="#C96A72"/><path d="M100 118 L100 138" stroke="#7CA05A" stroke-width="6" stroke-linecap="round"/>']
   ];
-  var WITH_NAME = DRAWS.map(function(d,i){ return art(d[0], d[1], ["김순자","김순자","김순자"][i]); });
-  var CROPPED   = DRAWS.map(function(d){ return art(d[0], d[1], null); });
-
+  var WITH_NAME = DRAWS.map(function(d){ return art(d[0],d[1],"김순자"); });
+  var CROPPED   = DRAWS.map(function(d){ return art(d[0],d[1],null); });
   var ROSTER = ["김순자","박영희","이말순","최금옥","정갑수","한복래"];
-
   var records = [
-    {img:CROPPED[0], name:"김순자", memo:"봄꽃을 그리셨어요", day:"지난주 화요일"},
-    {img:CROPPED[1], name:"김순자", memo:"산이라고 하셨습니다", day:"지난주 목요일"},
-    {img:CROPPED[2], name:"김순자", memo:"", day:"어제"}
+    {img:CROPPED[0],name:"김순자",memo:"봄꽃을 그리셨어요",day:"지난주 화요일"},
+    {img:CROPPED[1],name:"김순자",memo:"산이라고 하셨습니다",day:"지난주 목요일"},
+    {img:CROPPED[2],name:"김순자",memo:"",day:"어제"}
   ];
-  var draft = {img:null, raw:null, name:null, memo:"", fixed:false};
+  var draft = {img:null,raw:null,name:null,memo:"",fixed:false};
 
-  /* ── 관점 ── */
-  var PERSPS = [
-    {id:"site",   t:"현장 관점",  s:"어르신 · 센터 직원 — 만들고, 남긴다"},
-    {id:"family", t:"가족 관점",  s:"자녀 — 받아보고, 이야기한다"}
-  ];
-  var persp = "site";
-
-  /* ── 장면 ── */
-  var SCENES = [
-    { p:"all", id:"map", tab:"전체 그림", eyebrow:"한눈에",
-      title:"세 갈래가 하나로 모입니다",
-      lede:"어르신의 상태에 따라 누가 올리는지가 달라집니다. 셋 중 지금 만드는 것은 세 번째입니다.",
-      render:renderMap },
-
-    /* ── 현장 관점 ── */
-    { p:"site", id:"a1", tab:"현장 1", eyebrow:"현장 1", who:"어르신",
-      title:"그림을 그리고, 이름칸에 이름을 씁니다",
-      lede:"주간보호센터에서는 미술·원예 같은 프로그램이 정기적으로 열립니다. 도화지 아래 이름칸에 이름을 적어 냅니다.",
-      io:["종이와 크레파스","이름칸이 채워진 작품"],
-      art:true,
-      branch:"손이 떨려 못 쓰시는 분은 <b>직원이 대신 적어 드립니다.</b> 이름을 <b>정해진 칸</b>에만 적는 것이 중요합니다 — 나중에 이 칸을 통째로 잘라내기 때문입니다." },
-
-    { p:"site", id:"a2", tab:"현장 2", eyebrow:"현장 2", who:"센터 직원",
-      title:"프로그램이 끝나면 작품을 걷습니다",
-      lede:"걷는 이 순간이 정보가 가장 온전한 때입니다. 누가 무엇을 만들었는지 직원이 알고 있고, 종이에도 이름이 적혀 있습니다.",
-      io:["작품 여러 장","이름이 확인된 작품 뭉치"],
-      quote:["그건 원래 하고 있어요. 이름 안 쓰면 저희가 누구 건지 모르니까 저희가 필요해서 쓰는 거예요. 걷으면서 적는 거라 다 합쳐서 2~3분이에요. 이건 새 일이 아니에요.",
-             "가상 페르소나 2라운드 · 요양보호사 15년차 (시뮬레이션 발언)"] },
-
-    { p:"site", id:"a3", tab:"현장 3", eyebrow:"현장 3 · 눌러보세요", who:"센터 직원",
-      title:"걷으면서 한 장씩 찍습니다",
-      lede:"작품을 벽에 붙이든 돌려보내든, 찍어두는 것은 걷는 그 자리에서 합니다. 집에 가면 며칠 안에 사라집니다.",
-      io:["종이 작품","사진 한 장"],
-      render:renderShoot },
-
-    { p:"site", id:"a4", tab:"현장 4", eyebrow:"현장 4 · 눌러보세요", who:"센터 직원",
-      title:"누구 것인지 한 번 누릅니다",
-      lede:"오늘 오신 분들의 명단은 센터가 이미 갖고 있습니다. 타이핑은 하지 않습니다. 한 줄 메모는 안 쓰셔도 됩니다.",
-      io:["사진 + 이름칸","확인된 매칭"],
-      render:renderTag },
-
-    { p:"site", id:"a5", tab:"현장 5", eyebrow:"현장 5 · 눌러보세요", who:"시스템",
-      title:"확인이 끝나면, 이름칸을 잘라냅니다",
-      lede:"사람과 작품을 이어붙인 뒤에는 종이 위의 실명이 필요 없습니다. 저장되는 것은 이름칸이 없는 사진입니다.",
-      io:["이름칸이 있는 사진","이름칸이 없는 사진 + 매칭 정보"],
-      render:renderRedact,
-      safe:"어르신 실명이 사진에 남으면, 가족에게 전달되는 과정에서 그대로 밖으로 나갑니다. <b>이름을 정해진 칸에만 쓰게 한 이유가 이것입니다</b> — 그 자리를 잘라내기만 하면 되므로 글씨를 읽을 필요가 없습니다. <b>대신 쓴 직원의 글씨도 함께 사라집니다.</b>" },
-
-    { p:"site", id:"a6", tab:"현장 6", eyebrow:"현장 6", who:"센터 직원",
-      title:"보고서 쓰실 때 함께 처리합니다",
-      lede:"매일 하지 않아도 됩니다. 주간·월간 보고를 쓰는 그 자리에서 한꺼번에 넘기면 됩니다. 늘 보내던 공지에 주소 한 줄만 얹습니다.",
-      io:["그 주에 찍어둔 사진들","보호자에게 나가는 공지 + 링크"],
-      render:renderNotice,
-      branch:"공지 방식은 센터마다 다릅니다. <b>문자든 카톡이든 알림장이든 지금 쓰시는 것 그대로</b> 두고, 거기에 주소 한 줄만 넣습니다. 새 앱을 깔거나 발송 방식을 바꾸지 않습니다." },
-
-    /* ── 가족 관점 ── */
-    { p:"family", id:"b1", tab:"가족 1", eyebrow:"가족 1", who:"자녀",
-      title:"아침에 보내고, 저녁에 모셔 옵니다",
-      lede:"센터 앞에서 직원과 나누는 대화는 5분 남짓입니다. 직원은 여러 가족을 동시에 상대합니다. 어머니께 여쭤도 “그냥 있었지” 하십니다.",
-      io:["매일의 5분","오늘 잘 계셨어요"],
-      quote:["가아 오지. 저번에 무슨 부채 같은 거 만들어가 왔는데… 그거를 어데 뒀노. 집이 깨끗해야 잠이 오는 사람인데 그런 게 쌓이는 게 싫다. 며칠 두다가 버리제.",
-             "가상 페르소나 2라운드 · 79세 어르신 (시뮬레이션 발언)"] },
-
-    { p:"family", id:"b2", tab:"가족 2", eyebrow:"가족 2", who:"자녀",
-      title:"늘 오던 공지에, 주소 한 줄이 붙어 옵니다",
-      lede:"앱을 깔지 않습니다. 가입하지 않습니다. 받던 문자를 그대로 받고, 거기 있는 주소를 누르면 됩니다.",
-      io:["센터 공지","어머니의 기록으로 가는 문"],
-      render:renderNotice },
-
-    { p:"family", id:"b3", tab:"가족 3", eyebrow:"가족 3 · 눌러보세요", who:"자녀",
-      title:"쌓인 것을 봅니다",
-      lede:"한 장씩은 대수롭지 않지만, 모이면 달라집니다. 어머니가 지난 한 달을 어떻게 보내셨는지가 여기 있습니다.",
-      io:["그동안의 기록","어머니의 시간"],
-      render:renderGallery },
-
-    { p:"family", id:"b4", tab:"가족 4", eyebrow:"가족 4", who:"자녀 · 어르신",
-      title:"어머니께 보여드립니다",
-      lede:"“어머니, 이거 지난주에 그리신 거예요.” 기억이 안 나셔도 괜찮습니다. 날짜가 그날 거기 계셨다는 증거가 됩니다.",
-      io:["화면 한 장","오늘 저녁의 이야기"],
-      quote:["어머 이거 내가 한 거예요? 잘 그렸네. 근데 나는 이거 그린 기억이 안 나요. 그래도 이렇게 날짜가 있으니까 “아 내가 그날 갔었구나” 하고 알겠네요. 손주한테 이거 좀 보여줘야겠다, 할미도 뭐 한다고.",
-             "가상 페르소나 2라운드 · 77세 어르신 (시뮬레이션 발언)"],
-      unknown:"이 장면이 이 서비스가 가려는 곳입니다. <b>기록이 대화로 돌아오는 순간이 실제로 일어나는지</b>는 아직 확인되지 않았습니다." },
-
-    { p:"family", id:"b5", tab:"가족 5", eyebrow:"가족 5", who:"자녀",
-      title:"다른 가족에게 주소를 넘깁니다",
-      lede:"형제도, 손주도 앱을 깔지 않습니다. 받은 주소를 누르면 같은 화면이 열립니다.",
-      io:["주소 한 줄","같은 화면을 보는 가족"],
-      render:renderShare,
-      branch:"보낼 곳에 따라 의미가 달라집니다. <b>형제</b>에게 보내면 부모님 근황이 되고, <b>손주</b>에게 보내면 할머니 이야기가 됩니다." },
-
-    { p:"all", id:"end", tab:"마무리", eyebrow:"여기까지입니다",
-      title:"세 가지만 여쭙고 싶습니다",
-      lede:"틀렸다고 하셔도 괜찮습니다. 오히려 그게 저희에게 필요한 답입니다.",
-      render:renderEnd }
-  ];
-
-  var list = [], idx = 0;
-  var perspBox = document.getElementById("persp");
-  var rail = document.getElementById("rail");
-  var view = document.getElementById("view");
-  var prevBtn = document.getElementById("prev");
-  var nextBtn = document.getElementById("next");
-
-  function el(tag, cls, html){
-    var n = document.createElement(tag);
-    if(cls) n.className = cls;
-    if(html != null) n.innerHTML = html;
-    return n;
+  /* ── 단계 ── */
+  var STEPS = ["intro","q0","group","storyintro","story","after","end","done"];
+  var step = 0;
+  function cur(){ return STEPS[step]; }
+  function progress(){
+    var shown = ["q0","group","storyintro","story","after","end"];
+    var i = shown.indexOf(cur());
+    if(i < 0){ bar.hidden = true; return; }
+    bar.hidden = false;
+    fill.style.width = Math.round((i+1)/shown.length*100)+"%";
+    barlbl.textContent = (i+1)+" / "+shown.length;
   }
 
-  /* ── 장면 렌더러 ── */
+  /* ── 문항 ── */
+  function renderQ(host,item,first){
+    var box = el("div","q"+(first?" first":""));
+    box.appendChild(el("div","t",(item.star?'<span class="st">★</span> ':"")+esc(item.q)));
+    if(item.hint) box.appendChild(el("div","h",esc(item.hint)));
+    if(item.text){
+      var inp = item.long ? document.createElement("textarea") : document.createElement("input");
+      if(!item.long) inp.type="text";
+      inp.value = A[item.id]||"";
+      inp.placeholder = "여기에 적어주세요 (안 쓰셔도 됩니다)";
+      inp.addEventListener("input", function(e){ A[item.id]=e.target.value; });
+      box.appendChild(inp);
+    } else {
+      var opts = el("div","opts");
+      item.opts.forEach(function(o){
+        var label = Array.isArray(o)?o[0]:o;
+        var b = el("div","opt"+(item.multi?" multi":""));
+        b.setAttribute("role","button"); b.tabIndex=0;
+        b.appendChild(el("span","mk"));
+        b.appendChild(el("span",null,esc(label)));
+        var on = item.multi ? (A[item.id]||[]).indexOf(label)>=0 : A[item.id]===label;
+        if(on) b.classList.add("on");
+        function pick(){
+          if(item.multi){
+            var arr = A[item.id]||[]; var i=arr.indexOf(label);
+            if(i>=0) arr.splice(i,1); else arr.push(label);
+            A[item.id]=arr;
+          } else {
+            A[item.id]=label;
+            if(Array.isArray(o)) A._g=o[1];
+          }
+          render();
+        }
+        b.addEventListener("click",pick);
+        b.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();} });
+        opts.appendChild(b);
+      });
+      box.appendChild(opts);
+    }
+    host.appendChild(box);
+  }
 
-  function renderMap(host){
+  /* ── 스토리보드 ── */
+  var PERSPS = [{id:"site",t:"현장 관점",s:"어르신 · 센터 직원 — 만들고, 남긴다"},
+                {id:"family",t:"가족 관점",s:"자녀 — 받아보고, 이야기한다"}];
+  var persp = "site", list = [], sidx = 0;
+
+  var SCENES = [
+    {p:"all",id:"map",tab:"전체 그림",eyebrow:"한눈에",title:"세 갈래가 하나로 모입니다",
+     lede:"어르신의 상태에 따라 누가 올리는지가 달라집니다. 셋 중 지금 만드는 것은 세 번째입니다.",render:rMap},
+    {p:"site",id:"a1",tab:"현장 1",eyebrow:"현장 1",who:"어르신",title:"그림을 그리고, 이름칸에 이름을 씁니다",
+     lede:"주간보호센터에서는 미술·원예 같은 프로그램이 정기적으로 열립니다. 도화지 아래 이름칸에 이름을 적어 냅니다.",
+     io:["종이와 크레파스","이름칸이 채워진 작품"],art:true,
+     branch:"손이 떨려 못 쓰시는 분은 <b>직원이 대신 적어 드립니다.</b> 이름을 <b>정해진 칸</b>에만 적는 것이 중요합니다 — 나중에 이 칸을 통째로 잘라내기 때문입니다."},
+    {p:"site",id:"a2",tab:"현장 2",eyebrow:"현장 2",who:"센터 직원",title:"프로그램이 끝나면 작품을 걷습니다",
+     lede:"걷는 이 순간이 정보가 가장 온전한 때입니다. 누가 무엇을 만들었는지 직원이 알고 있고, 종이에도 이름이 적혀 있습니다.",
+     io:["작품 여러 장","이름이 확인된 작품 뭉치"],
+     quote:["그건 원래 하고 있어요. 이름 안 쓰면 저희가 누구 건지 모르니까 저희가 필요해서 쓰는 거예요. 걷으면서 적는 거라 다 합쳐서 2~3분이에요. 이건 새 일이 아니에요.","가상 인터뷰 · 요양보호사 15년차 (시뮬레이션)"]},
+    {p:"site",id:"a3",tab:"현장 3",eyebrow:"현장 3 · 눌러보세요",who:"센터 직원",title:"걷으면서 한 장씩 찍습니다",
+     lede:"작품을 벽에 붙이든 돌려보내든, 찍어두는 것은 걷는 그 자리에서 합니다. 집에 가면 며칠 안에 사라집니다.",
+     io:["종이 작품","사진 한 장"],render:rShoot},
+    {p:"site",id:"a4",tab:"현장 4",eyebrow:"현장 4 · 눌러보세요",who:"센터 직원",title:"누구 것인지 한 번 누릅니다",
+     lede:"오늘 오신 분들의 명단은 센터가 이미 갖고 있습니다. 타이핑은 하지 않습니다.",
+     io:["사진 + 이름칸","확인된 매칭"],render:rTag},
+    {p:"site",id:"a5",tab:"현장 5",eyebrow:"현장 5 · 눌러보세요",who:"시스템",title:"확인이 끝나면, 이름칸을 잘라냅니다",
+     lede:"사람과 작품을 이어붙인 뒤에는 종이 위의 실명이 필요 없습니다. 저장되는 것은 이름칸이 없는 사진입니다.",
+     io:["이름칸이 있는 사진","이름칸이 없는 사진 + 매칭 정보"],render:rRedact,
+     safe:"어르신 실명이 사진에 남으면, 가족에게 전달되는 과정에서 그대로 밖으로 나갑니다. <b>이름을 정해진 칸에만 쓰게 한 이유가 이것입니다.</b> 대신 쓴 직원의 글씨도 함께 사라집니다."},
+    {p:"site",id:"a6",tab:"현장 6",eyebrow:"현장 6",who:"센터 직원",title:"보고서 쓰실 때 함께 처리합니다",
+     lede:"매일 하지 않아도 됩니다. 주간·월간 보고를 쓰는 그 자리에서 한꺼번에 넘기면 됩니다. 늘 보내던 공지에 주소 한 줄만 얹습니다.",
+     io:["그 주에 찍어둔 사진들","보호자에게 나가는 공지 + 링크"],render:rNotice,
+     branch:"공지 방식은 센터마다 다릅니다. <b>문자든 카톡이든 알림장이든 지금 쓰시는 것 그대로</b> 두고, 거기에 주소 한 줄만 넣습니다."},
+    {p:"family",id:"b1",tab:"가족 1",eyebrow:"가족 1",who:"자녀",title:"아침에 보내고, 저녁에 모셔 옵니다",
+     lede:"센터 앞에서 직원과 나누는 대화는 5분 남짓입니다. 어머니께 여쭤도 “그냥 있었지” 하십니다.",
+     io:["매일의 5분","오늘 잘 계셨어요"],
+     quote:["가아 오지. 저번에 무슨 부채 같은 거 만들어가 왔는데… 그거를 어데 뒀노. 집이 깨끗해야 잠이 오는 사람인데 그런 게 쌓이는 게 싫다. 며칠 두다가 버리제.","가상 인터뷰 · 79세 어르신 (시뮬레이션)"]},
+    {p:"family",id:"b2",tab:"가족 2",eyebrow:"가족 2",who:"자녀",title:"늘 오던 공지에, 주소 한 줄이 붙어 옵니다",
+     lede:"앱을 깔지 않습니다. 가입하지 않습니다. 받던 문자를 그대로 받고, 거기 있는 주소를 누르면 됩니다.",
+     io:["센터 공지","어머니의 기록으로 가는 문"],render:rNotice},
+    {p:"family",id:"b3",tab:"가족 3",eyebrow:"가족 3 · 눌러보세요",who:"자녀",title:"쌓인 것을 봅니다",
+     lede:"한 장씩은 대수롭지 않지만, 모이면 달라집니다. 어머니가 지난 한 달을 어떻게 보내셨는지가 여기 있습니다.",
+     io:["그동안의 기록","어머니의 시간"],render:rGallery},
+    {p:"family",id:"b4",tab:"가족 4",eyebrow:"가족 4",who:"자녀 · 어르신",title:"어머니께 보여드립니다",
+     lede:"“어머니, 이거 지난주에 그리신 거예요.” 기억이 안 나셔도 괜찮습니다. 날짜가 그날 거기 계셨다는 증거가 됩니다.",
+     io:["화면 한 장","오늘 저녁의 이야기"],
+     quote:["어머 이거 내가 한 거예요? 잘 그렸네. 근데 나는 이거 그린 기억이 안 나요. 그래도 이렇게 날짜가 있으니까 “아 내가 그날 갔었구나” 하고 알겠네요. 손주한테 이거 좀 보여줘야겠다, 할미도 뭐 한다고.","가상 인터뷰 · 77세 어르신 (시뮬레이션)"],
+     unknown:"이 장면이 이 서비스가 가려는 곳입니다. <b>기록이 대화로 돌아오는 순간이 실제로 일어나는지</b>는 아직 확인되지 않았습니다."},
+    {p:"family",id:"b5",tab:"가족 5",eyebrow:"가족 5",who:"자녀",title:"다른 가족에게 주소를 넘깁니다",
+     lede:"형제도, 손주도 앱을 깔지 않습니다. 받은 주소를 누르면 같은 화면이 열립니다.",
+     io:["주소 한 줄","같은 화면을 보는 가족"],render:rShare,
+     branch:"보낼 곳에 따라 의미가 달라집니다. <b>형제</b>에게 보내면 부모님 근황이 되고, <b>손주</b>에게 보내면 할머니 이야기가 됩니다."}
+  ];
+
+  function rMap(host){
     var m = el("div","map");
     [["1","어르신이 온전하실 때","본인이 직접 올립니다","준비 중",false],
      ["2","기억이 흐려지시는 중","가족이 대신 올립니다","검증 결과 보류",false],
-     ["3","센터에서 만드는 순간","직원이 걷으면서 올립니다","지금 보시는 흐름",true]
-    ].forEach(function(t){
-      var row = el("div","track" + (t[4] ? " on" : ""));
+     ["3","센터에서 만드는 순간","직원이 걷으면서 올립니다","지금 보시는 흐름",true]].forEach(function(t){
+      var row = el("div","track2"+(t[4]?" on":""));
       row.appendChild(el("div","n",t[0]));
       var b = el("div");
-      b.appendChild(el("div","t",t[1]));
-      b.appendChild(el("div","d",t[2]));
-      b.appendChild(el("div","tag",t[3]));
-      row.appendChild(b);
-      m.appendChild(row);
+      b.appendChild(el("div","t",t[1])); b.appendChild(el("div","d",t[2])); b.appendChild(el("div","tag",t[3]));
+      row.appendChild(b); m.appendChild(row);
     });
     host.appendChild(m);
     host.appendChild(el("div","merge","↓  하나의 기록으로 쌓입니다  ↓"));
-    host.appendChild(el("div","after","<b>먼 훗날, 가족이 이어받아 꺼내 봅니다</b><br><span style=\"font-size:.85rem\">이 프로젝트가 처음 출발한 자리입니다. 지금은 만들지 않습니다.</span>"));
+    host.appendChild(el("div","aft","<b>먼 훗날, 가족이 이어받아 꺼내 봅니다</b><br><span style=\"font-size:.85rem\">이 프로젝트가 처음 출발한 자리입니다.</span>"));
   }
-
-  function renderShoot(host){
-    var p = el("div","phone");
-    p.appendChild(el("h3",null,"작품 남기기"));
+  function rShoot(host){
+    var p = el("div","phone"); p.appendChild(el("h3",null,"작품 남기기"));
     var box = el("div");
     if(draft.raw){
-      var img = el("img","shot"); img.src = draft.raw; img.alt = "찍은 작품";
-      box.appendChild(img);
-      var again = el("button","save","다시 고르기"); again.type = "button";
-      again.addEventListener("click", function(){ draft.raw = null; draft.img = null; draft.fixed = false; render(); });
+      var img=el("img","shot"); img.src=draft.raw; img.alt="찍은 작품"; box.appendChild(img);
+      var again=el("button","save","다시 고르기"); again.type="button";
+      again.addEventListener("click",function(){ draft.raw=null;draft.img=null;draft.fixed=false;render(); });
       box.appendChild(again);
     } else {
-      var lab = el("label","drop","작품 사진을 고르세요<br><span style=\"font-size:.8rem\">폰이라면 여기서 바로 카메라가 열립니다</span>");
-      var inp = document.createElement("input");
-      inp.type = "file"; inp.accept = "image/*";
-      inp.addEventListener("change", function(e){
-        var f = e.target.files && e.target.files[0];
-        if(!f) return;
-        var r = new FileReader();
-        r.onload = function(ev){ draft.raw = ev.target.result; draft.img = ev.target.result; render(); };
+      var lab=el("label","drop","작품 사진을 고르세요<br><span style=\"font-size:.8rem\">폰이라면 여기서 바로 카메라가 열립니다</span>");
+      var inp=document.createElement("input"); inp.type="file"; inp.accept="image/*";
+      inp.addEventListener("change",function(e){
+        var f=e.target.files&&e.target.files[0]; if(!f) return;
+        var r=new FileReader(); r.onload=function(ev){ draft.raw=ev.target.result; draft.img=ev.target.result; render(); };
         r.readAsDataURL(f);
       });
-      lab.appendChild(inp);
-      box.appendChild(lab);
-      var s = el("button","save","사진이 없으면 예시로 해보기"); s.type = "button";
-      s.addEventListener("click", function(){ draft.raw = WITH_NAME[0]; draft.img = CROPPED[0]; render(); });
+      lab.appendChild(inp); box.appendChild(lab);
+      var s=el("button","save","사진이 없으면 예시로 해보기"); s.type="button";
+      s.addEventListener("click",function(){ draft.raw=WITH_NAME[0]; draft.img=CROPPED[0]; render(); });
       box.appendChild(s);
     }
     p.appendChild(box);
     p.appendChild(el("div","note","고른 사진은 이 브라우저 안에만 있습니다."));
     host.appendChild(p);
   }
-
-  function renderTag(host){
-    var p = el("div","phone");
-    p.appendChild(el("h3",null,"누구 것인가요?"));
-    if(draft.raw){
-      var img = el("img","shot"); img.src = draft.raw; img.alt = "이름칸이 보이는 작품";
-      p.appendChild(img);
-    } else {
-      p.appendChild(el("div","drop","앞 장면에서 사진을 먼저 골라 주세요"));
-    }
-    var names = el("div","names");
+  function rTag(host){
+    var p=el("div","phone"); p.appendChild(el("h3",null,"누구 것인가요?"));
+    if(draft.raw){ var img=el("img","shot"); img.src=draft.raw; img.alt="이름칸이 보이는 작품"; p.appendChild(img); }
+    else p.appendChild(el("div","drop","앞 장면에서 사진을 먼저 골라 주세요"));
+    var names=el("div","names");
     ROSTER.forEach(function(n){
-      var b = el("button",null,n); b.type = "button";
-      if(draft.name === n) b.className = "sel";
-      b.addEventListener("click", function(){ draft.name = n; render(); });
+      var b=el("button",null,n); b.type="button";
+      if(draft.name===n) b.className="sel";
+      b.addEventListener("click",function(){ draft.name=n; render(); });
       names.appendChild(b);
     });
     p.appendChild(names);
     p.appendChild(el("div","note","오늘 오신 분들입니다. 센터가 이미 갖고 있는 명단이라 따로 받을 필요가 없습니다."));
-
-    var memo = document.createElement("input");
-    memo.className = "memo"; memo.type = "text";
-    memo.placeholder = "한 줄 남기기 (안 쓰셔도 됩니다)";
-    memo.value = draft.memo;
-    memo.addEventListener("input", function(e){ draft.memo = e.target.value; });
+    var memo=document.createElement("input");
+    memo.className="memo"; memo.type="text"; memo.placeholder="한 줄 남기기 (오늘 어떠셨는지)"; memo.value=draft.memo;
+    memo.addEventListener("input",function(e){ draft.memo=e.target.value; });
     p.appendChild(memo);
-
-    var ok = el("button","save","이 분이 맞습니다");
-    ok.type = "button";
+    var ok=el("button","save","이 분이 맞습니다"); ok.type="button";
     ok.disabled = !(draft.raw && draft.name);
-    ok.addEventListener("click", function(){ draft.fixed = true; go(idx + 1); });
+    ok.addEventListener("click",function(){ draft.fixed=true; goScene(sidx+1); });
     p.appendChild(ok);
     p.appendChild(el("div","note","확인을 누르기 전에는 아무것도 지워지지 않습니다."));
     host.appendChild(p);
   }
-
-  function renderRedact(host){
-    if(!draft.fixed){
-      host.appendChild(el("div","drop","앞 장면에서 <b>이 분이 맞습니다</b>를 먼저 눌러 주세요"));
-      return;
-    }
-    var ba = el("div","beforeafter");
-
-    var b1 = el("div","ba");
-    b1.appendChild(el("div","h","찍은 그대로"));
-    var i1 = document.createElement("img"); i1.src = draft.raw; i1.alt = "이름칸이 있는 사진";
-    b1.appendChild(i1);
-    ba.appendChild(b1);
-
-    var b2 = el("div","ba out");
-    b2.appendChild(el("div","h","저장되는 것"));
-    var i2 = document.createElement("img"); i2.src = draft.img || draft.raw; i2.alt = "이름칸이 잘려나간 사진";
-    b2.appendChild(i2);
-    ba.appendChild(b2);
-
+  function rRedact(host){
+    if(!draft.fixed){ host.appendChild(el("div","drop","앞 장면에서 <b>이 분이 맞습니다</b>를 먼저 눌러 주세요")); return; }
+    var ba=el("div","beforeafter");
+    var b1=el("div","ba"); b1.appendChild(el("div","h","찍은 그대로"));
+    var i1=document.createElement("img"); i1.src=draft.raw; i1.alt="이름칸이 있는 사진"; b1.appendChild(i1); ba.appendChild(b1);
+    var b2=el("div","ba out"); b2.appendChild(el("div","h","저장되는 것"));
+    var i2=document.createElement("img"); i2.src=draft.img||draft.raw; i2.alt="이름칸이 잘려나간 사진"; b2.appendChild(i2); ba.appendChild(b2);
     host.appendChild(ba);
-    host.appendChild(el("div","note",
-      "매칭 정보는 <b>" + draft.name + " 어르신</b>으로 남고, 사진에서는 실명이 사라집니다."));
-
-    var save = el("button","save warn","이대로 저장하기"); save.type = "button";
-    save.addEventListener("click", function(){
-      records.push({img:draft.img || draft.raw, name:draft.name, memo:draft.memo, day:"오늘"});
-      draft = {img:null, raw:null, name:null, memo:"", fixed:false};
-      persp = "family"; buildList();
-      idx = list.findIndex(function(s){ return s.id === "b3"; });
-      if(idx < 0) idx = 0;
-      renderPersp(); render(); window.scrollTo({top:0, behavior:"smooth"});
+    host.appendChild(el("div","note","매칭 정보는 <b>"+esc(draft.name)+" 어르신</b>으로 남고, 사진에서는 실명이 사라집니다."));
+    var save=el("button","save warn","이대로 저장하기"); save.type="button";
+    save.addEventListener("click",function(){
+      records.push({img:draft.img||draft.raw,name:draft.name,memo:draft.memo,day:"오늘"});
+      draft={img:null,raw:null,name:null,memo:"",fixed:false};
+      persp="family"; buildList();
+      sidx=list.findIndex(function(s){return s.id==="b3";}); if(sidx<0) sidx=0;
+      render(); window.scrollTo({top:0,behavior:"smooth"});
     });
     host.appendChild(save);
     host.appendChild(el("div","note","저장하면 가족이 보는 화면으로 넘어갑니다."));
   }
-
-  function renderNotice(host){
-    var m = el("div","msg");
+  function rNotice(host){
+    var m=el("div","msg");
     m.appendChild(el("div","from","햇살주간보호센터"));
-    m.appendChild(el("div",null,
-      "이번 주에는 <b>원예활동</b>과 <b>한지공예</b>를 진행했습니다.<br>" +
-      "다음 주에는 어버이날 행사가 예정되어 있습니다.<br>" +
-      "언제나 감사드립니다."));
-    var a = el("div","link","🔗 김순자 어르신이 만드신 것 보기");
-    m.appendChild(a);
+    m.appendChild(el("div",null,"이번 주에는 <b>원예활동</b>과 <b>한지공예</b>를 진행했습니다.<br>다음 주에는 어버이날 행사가 예정되어 있습니다.<br>언제나 감사드립니다."));
+    m.appendChild(el("div","link","🔗 김순자 어르신이 만드신 것 보기"));
     host.appendChild(m);
     host.appendChild(el("div","note","지금 쓰시는 문자·카톡 그대로입니다. 마지막 줄만 새로 붙습니다."));
   }
-
-  function renderGallery(host){
-    var days = {}, order = [];
-    records.forEach(function(r){
-      if(!days[r.day]){ days[r.day] = []; order.push(r.day); }
-      days[r.day].push(r);
-    });
+  function rGallery(host){
+    var days={},order=[];
+    records.forEach(function(r){ if(!days[r.day]){days[r.day]=[];order.push(r.day);} days[r.day].push(r); });
     order.slice().reverse().forEach(function(d){
-      host.appendChild(el("div","daylabel", d));
-      var g = el("div","grid");
+      host.appendChild(el("div","daylabel",d));
+      var g=el("div","grid");
       days[d].forEach(function(r){
-        var it = el("div","item");
-        var im = document.createElement("img"); im.src = r.img; im.alt = r.name + " 어르신의 작품";
-        it.appendChild(im);
-        var cap = el("div","cap");
-        cap.appendChild(el("div","nm", r.name));
-        cap.appendChild(el("div","mm", r.memo || "—"));
-        it.appendChild(cap);
-        g.appendChild(it);
+        var it=el("div","item");
+        var im=document.createElement("img"); im.src=r.img; im.alt=r.name+" 어르신의 작품"; it.appendChild(im);
+        var cap=el("div","cap");
+        cap.appendChild(el("div","nm",r.name));
+        cap.appendChild(el("div","mm",r.memo||"—"));
+        it.appendChild(cap); g.appendChild(it);
       });
       host.appendChild(g);
     });
-    host.appendChild(el("div","note","지금 " + records.length + "장이 쌓였습니다. 사진에는 실명이 없습니다."));
+    host.appendChild(el("div","note","지금 "+records.length+"장이 쌓였습니다. 사진에는 실명이 없습니다."));
   }
-
-  function renderShare(host){
-    host.appendChild(el("div","msg",
-      "<div class=\"from\">가족 단톡방</div>엄마 요즘 이런 거 하신대 ㅎㅎ" +
-      "<div class=\"link\">🔗 geurium.kr/ㄱ/8f3a-2c71-b904</div>"));
+  function rShare(host){
+    host.appendChild(el("div","msg","<div class=\"from\">가족 단톡방</div>엄마 요즘 이런 거 하신대 ㅎㅎ<div class=\"link\">🔗 geurium.kr/ㄱ/8f3a-2c71-b904</div>"));
     host.appendChild(el("div","note","주소를 아는 사람만 볼 수 있습니다. 가입도 설치도 없습니다."));
   }
 
-  function renderEnd(host){
-    var ol = el("ol","q");
-    ol.appendChild(el("li",null,"<b>센터에서 만드신 작품은 지금 어떻게 되고 있나요?</b> 집으로 오나요, 센터에 남나요, 버려지나요?"));
-    ol.appendChild(el("li",null,"<b>이 화면들 중 어디서 “어?” 하셨나요?</b> 이해가 안 되거나 이상했던 지점을 알려주세요."));
-    ol.appendChild(el("li",null,"<b>이게 있으면 쓰시겠어요?</b> 안 쓰실 것 같다면 그 이유가 무엇인가요?"));
-    host.appendChild(ol);
-    host.appendChild(el("div","note","이 세 가지 답이 다음 설계를 바꿉니다."));
-  }
+  function buildList(){ list = SCENES.filter(function(s){ return s.p==="all"||s.p===persp; }); }
+  function goScene(i){ sidx=Math.max(0,Math.min(list.length-1,i)); render(); window.scrollTo({top:0,behavior:"smooth"}); }
 
-  /* ── 렌더 ── */
-
-  function buildList(){
-    list = SCENES.filter(function(s){ return s.p === "all" || s.p === persp; });
-  }
-
-  function renderPersp(){
-    perspBox.innerHTML = "";
+  function renderStory(host){
+    var pb=el("div","persp");
     PERSPS.forEach(function(p){
-      var b = document.createElement("button");
-      b.type = "button";
-      b.setAttribute("aria-pressed", persp === p.id ? "true" : "false");
-      b.innerHTML = "<b>" + p.t + "</b><span>" + p.s + "</span>";
-      b.addEventListener("click", function(){
-        if(persp === p.id) return;
-        persp = p.id; buildList(); idx = 1 < list.length ? 1 : 0;
-        renderPersp(); render(); window.scrollTo({top:0, behavior:"smooth"});
+      var b=document.createElement("button"); b.type="button";
+      b.setAttribute("aria-pressed",persp===p.id?"true":"false");
+      b.innerHTML="<b>"+p.t+"</b><span>"+p.s+"</span>";
+      b.addEventListener("click",function(){
+        if(persp===p.id) return;
+        persp=p.id; buildList(); sidx=list.length>1?1:0; render(); window.scrollTo({top:0,behavior:"smooth"});
       });
-      perspBox.appendChild(b);
+      pb.appendChild(b);
     });
-  }
+    host.appendChild(pb);
+    var rail=el("div","rail");
+    list.forEach(function(sc,i){
+      var b=el("button",null,sc.tab); b.type="button";
+      b.setAttribute("aria-current",i===sidx?"true":"false");
+      b.addEventListener("click",function(){ goScene(i); });
+      rail.appendChild(b);
+    });
+    host.appendChild(rail);
 
-  function render(){
-    var s = list[idx];
-    view.innerHTML = "";
-    view.appendChild(el("p","eyebrow", s.eyebrow));
-    view.appendChild(el("h2",null, s.title));
-    if(s.who) view.appendChild(el("div","who", s.who));
-    view.appendChild(el("p","lede", s.lede));
-
+    var s=list[sidx];
+    host.appendChild(el("p","eyebrow",s.eyebrow));
+    host.appendChild(el("h2",null,s.title));
+    if(s.who) host.appendChild(el("div","who",s.who));
+    host.appendChild(el("p","lede",s.lede));
     if(s.art){
-      var st = el("div","stage");
-      st.appendChild(el("div","stage-label","그날의 결과물"));
-      var g = el("div","grid");
-      WITH_NAME.forEach(function(src, i){
-        var it = el("div","item");
-        var im = document.createElement("img"); im.src = src; im.alt = "어르신이 그린 그림 예시 " + (i+1);
-        it.appendChild(im);
+      var st=el("div","stage"); st.appendChild(el("div","stage-label","그날의 결과물"));
+      var g=el("div","grid");
+      WITH_NAME.forEach(function(src,i){
+        var it=el("div","item");
+        var im=document.createElement("img"); im.src=src; im.alt="어르신이 그린 그림 예시 "+(i+1); it.appendChild(im);
         it.appendChild(el("div","cap","<div class=\"nm\">아래 칸에 이름을 적습니다</div>"));
         g.appendChild(it);
       });
-      st.appendChild(g);
-      view.appendChild(st);
+      st.appendChild(g); host.appendChild(st);
     }
-
     if(s.render){
-      var stage = el("div","stage");
-      stage.appendChild(el("div","stage-label",
-        s.id === "map" ? "전체 그림" : (s.id === "end" ? "질문" : "화면")));
-      s.render(stage);
-      view.appendChild(stage);
+      var stage=el("div","stage");
+      stage.appendChild(el("div","stage-label",s.id==="map"?"전체 그림":"화면"));
+      s.render(stage); host.appendChild(stage);
     }
-
     if(s.io){
-      var io = el("div","io");
-      io.appendChild(el("div",null,"<b>들어오는 것</b>" + s.io[0]));
-      io.appendChild(el("div",null,"<b>나가는 것</b>" + s.io[1]));
-      view.appendChild(io);
+      var io=el("div","io");
+      io.appendChild(el("div",null,"<b>들어오는 것</b>"+s.io[0]));
+      io.appendChild(el("div",null,"<b>나가는 것</b>"+s.io[1]));
+      host.appendChild(io);
     }
-    if(s.safe)    view.appendChild(el("div","flag safe","<span class=\"k\">왜 지우나</span><span>" + s.safe + "</span>"));
-    if(s.branch)  view.appendChild(el("div","flag branch","<span class=\"k\">갈림길</span><span>" + s.branch + "</span>"));
-    if(s.unknown) view.appendChild(el("div","flag unknown","<span class=\"k\">아직 확인 못 함</span><span>" + s.unknown + "</span>"));
-    if(s.quote)   view.appendChild(el("blockquote","quote","“" + s.quote[0] + "”<cite>" + s.quote[1] + "</cite>"));
+    if(s.safe)    host.appendChild(el("div","flag safe","<span class=\"k\">왜 지우나</span><span>"+s.safe+"</span>"));
+    if(s.branch)  host.appendChild(el("div","flag branch","<span class=\"k\">갈림길</span><span>"+s.branch+"</span>"));
+    if(s.unknown) host.appendChild(el("div","flag unknown","<span class=\"k\">아직 확인 못 함</span><span>"+s.unknown+"</span>"));
+    if(s.quote)   host.appendChild(el("blockquote","quote","“"+s.quote[0]+"”<cite>"+s.quote[1]+"</cite>"));
+  }
 
-    rail.innerHTML = "";
-    list.forEach(function(sc, i){
-      var b = el("button", null, sc.tab); b.type = "button";
-      b.setAttribute("aria-current", i === idx ? "true" : "false");
-      b.addEventListener("click", function(){ go(i); });
-      rail.appendChild(b);
+  /* ── 답변 정리 ── */
+  function summarize(){
+    var L=["[그리움 설문 응답]"];
+    var g=A._g||"?";
+    L.push("분류: "+(S.groups[g]?S.groups[g].label:"미선택"),"");
+    function dump(items){
+      items.forEach(function(it){
+        var v=A[it.id]; if(Array.isArray(v)) v=v.join(", ");
+        L.push(it.id+". "+it.q);
+        L.push("  → "+(v&&String(v).trim()?v:"(무응답)"));
+      });
+    }
+    if(S[g]) dump(S[g]);
+    L.push("","--- 화면을 본 뒤 ---");
+    dump(S.after);
+    L.push("");
+    dump(S.end);
+    return L.join("\n");
+  }
+  function copyText(t){
+    if(navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+    return new Promise(function(res,rej){
+      var ta=document.createElement("textarea"); ta.value=t;
+      ta.style.position="fixed"; ta.style.opacity="0";
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand("copy"); res(); }catch(e){ rej(e); }
+      document.body.removeChild(ta);
     });
+  }
+  function showToast(m){ toast.textContent=m; toast.classList.add("on");
+    setTimeout(function(){ toast.classList.remove("on"); },2200); }
 
-    prevBtn.disabled = idx === 0;
-    nextBtn.disabled = idx === list.length - 1;
-    nextBtn.textContent = idx === list.length - 2 ? "마무리 →" : "다음 →";
+  /* ── 버튼 ── */
+  function foot(btns){
+    footin.innerHTML="";
+    btns.forEach(function(b){
+      var n=document.createElement("button"); n.type="button";
+      n.className="btn"+(b.ghost?" ghost":"");
+      n.textContent=b.label;
+      if(b.off) n.disabled=true; else n.addEventListener("click",b.fn);
+      footin.appendChild(n);
+    });
+  }
+  function next(){ if(step<STEPS.length-1){ step++; render(); window.scrollTo({top:0,behavior:"smooth"}); } }
+  function prev(){ if(step>0){ step--; render(); window.scrollTo({top:0,behavior:"smooth"}); } }
+
+  /* ── 화면 ── */
+  function render(){
+    var c=cur();
+    view.innerHTML=""; noteEl.innerHTML=""; progress();
+    subEl.textContent = (c==="story") ? "이야기 흐름" : "어르신의 하루를 가족에게";
+
+    if(c==="intro"){
+      view.appendChild(el("p","eyebrow","5분 설문"));
+      view.appendChild(el("h2",null,"어르신이 남기신 것을 가족에게 전하는 서비스를 준비하고 있습니다"));
+      view.appendChild(el("p","lede","주간보호센터에서 어르신들이 그림도 그리고 공예도 하십니다. 그게 벽에 한 달 붙어 있다가 그냥 버려집니다. 가족은 그런 게 있었는지도 모르고요."));
+      view.appendChild(el("blockquote","quote","“아까분데 우짜노, 둘 데가 없다 안 카나. 자기 자석들이 안 가지러 오는데 우리가 우째.”<cite>가상 인터뷰 · 농촌 요양보호사 (시뮬레이션)</cite>"));
+      view.appendChild(el("p","lede","<b>잘 모르셔도 괜찮습니다.</b> 전문 지식은 하나도 필요 없어요. 여쭤보는 건 전부 <b>본인 상황</b>이고, “모르겠다”도 저희에겐 소중한 답입니다."));
+      view.appendChild(el("div","flag branch","<span class=\"k\">순서</span><span>먼저 몇 가지 여쭙고 → <b>준비 중인 화면을 보여드리고</b> → 소감을 여쭙습니다.</span>"));
+      view.appendChild(el("div","skip","모든 질문은 건너뛰실 수 있습니다. 답은 이 브라우저 안에만 있고, 마지막에 직접 복사해서 보내주시는 방식입니다. 자동으로 전송되지 않습니다."));
+      foot([{label:"시작하기",fn:next}]);
+      return;
+    }
+
+    if(c==="q0"){
+      view.appendChild(el("p","eyebrow","먼저"));
+      view.appendChild(el("h2",null,"어느 쪽이신가요?"));
+      view.appendChild(el("p","lede","이 답에 따라 여쭤볼 내용이 달라집니다."));
+      renderQ(view,S.q0,true);
+      foot([{label:"이전",fn:prev,ghost:true},{label:"다음",fn:next,off:!A._g}]);
+      return;
+    }
+
+    if(c==="group"){
+      var g=A._g||"D", meta=S.groups[g];
+      view.appendChild(el("p","eyebrow",meta.label));
+      view.appendChild(el("h2",null,meta.title));
+      if(meta.desc) view.appendChild(el("p","lede",meta.desc));
+      (S[g]||[]).forEach(function(it,i){ renderQ(view,it,i===0); });
+      view.appendChild(el("div","skip","답하기 어려운 건 비워두셔도 됩니다."));
+      foot([{label:"이전",fn:prev,ghost:true},{label:"다음",fn:next}]);
+      return;
+    }
+
+    if(c==="storyintro"){
+      view.appendChild(el("p","eyebrow","이제 보여드립니다"));
+      view.appendChild(el("h2",null,"준비 중인 화면을 한번 봐주세요"));
+      view.appendChild(el("p","lede","다음 화면부터 <b>이야기 흐름</b>이 나옵니다. 위에서 <b>현장 관점</b>과 <b>가족 관점</b>을 바꿔가며 보실 수 있고, 몇몇 화면은 실제로 눌러볼 수 있습니다."));
+      view.appendChild(el("div","flag unknown","<span class=\"k\">부탁</span><span>다 이해하려 애쓰지 마세요. <b>“어?” 하고 걸리는 부분</b>만 기억해 두시면 됩니다. 그게 저희에게 가장 필요한 답입니다.</span>"));
+      view.appendChild(el("div","skip","2분이면 됩니다. 다 보시면 아래 “다 봤습니다”를 눌러주세요."));
+      foot([{label:"이전",fn:prev,ghost:true},{label:"화면 보러 가기",fn:next}]);
+      return;
+    }
+
+    if(c==="story"){
+      renderStory(view);
+      noteEl.innerHTML="올리신 사진은 이 브라우저 안에만 있으며 어디로도 전송되지 않습니다.";
+      foot([{label:"←",fn:function(){goScene(sidx-1);},ghost:true,off:sidx===0},
+            {label:"다음 장면 →",fn:function(){goScene(sidx+1);},ghost:true,off:sidx===list.length-1},
+            {label:"다 봤습니다",fn:next}]);
+      return;
+    }
+
+    if(c==="after"){
+      view.appendChild(el("p","eyebrow","보시고 나서"));
+      view.appendChild(el("h2",null,"네 가지만 여쭙겠습니다"));
+      view.appendChild(el("p","lede","솔직하게 적어주실수록 도움이 됩니다. <b>“별로다”가 가장 값진 답입니다.</b>"));
+      S.after.forEach(function(it,i){ renderQ(view,it,i===0); });
+      foot([{label:"이전",fn:prev,ghost:true},{label:"다음",fn:next}]);
+      return;
+    }
+
+    if(c==="end"){
+      view.appendChild(el("p","eyebrow","마지막"));
+      view.appendChild(el("h2",null,"한 가지만 더 부탁드립니다"));
+      view.appendChild(el("p","lede","현장에서 일하시는 분의 이야기를 꼭 듣고 싶습니다. <b>딱 15분</b>이면 됩니다."));
+      S.end.forEach(function(it,i){ renderQ(view,it,i===0); });
+      foot([{label:"이전",fn:prev,ghost:true},{label:"답변 정리하기",fn:next}]);
+      return;
+    }
+
+    if(c==="done"){
+      bar.hidden=true;
+      view.appendChild(el("p","eyebrow","다 됐습니다"));
+      view.appendChild(el("h2",null,"고맙습니다. 정말 큰 도움이 됐습니다"));
+      view.appendChild(el("p","lede","아래 <b>[답변 복사하기]</b>를 누르시고, <b>보내주신 분께 붙여넣기</b>만 해주시면 끝입니다."));
+      var txt=summarize();
+      view.appendChild(el("div","result",esc(txt)));
+      view.appendChild(el("div","skip","자동으로 전송되지 않습니다. 복사해서 직접 보내주셔야 합니다. 복사가 안 되면 위 내용을 길게 눌러 직접 선택해 주세요."));
+      foot([{label:"처음부터",fn:function(){ A={}; step=0; persp="site"; buildList(); sidx=0; render(); },ghost:true},
+            {label:"답변 복사하기",fn:function(){
+              copyText(txt).then(function(){ showToast("복사되었습니다 — 붙여넣어 주세요"); },
+                                 function(){ showToast("복사 실패 — 위 내용을 직접 선택해 주세요"); });
+            }}]);
+      return;
+    }
   }
 
-  function go(i){
-    idx = Math.max(0, Math.min(list.length - 1, i));
-    render(); view.focus(); window.scrollTo({top:0, behavior:"smooth"});
-  }
-
-  prevBtn.addEventListener("click", function(){ go(idx - 1); });
-  nextBtn.addEventListener("click", function(){ go(idx + 1); });
-  document.addEventListener("keydown", function(e){
-    if(e.key === "ArrowRight") go(idx + 1);
-    if(e.key === "ArrowLeft") go(idx - 1);
-  });
-
-  buildList(); renderPersp(); render();
+  buildList();
+  render();
 })();
 </script>
+</body>
+</html>
