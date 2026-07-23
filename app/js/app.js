@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v14';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v15';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -575,7 +575,7 @@
         return;
       }
       busy = true;
-      UI.setChip('들어가는 중…');
+      UI.setChip('로그인 중…');
       Supa.signIn(email.value, pw.value)
         .then(function () { return Store.use('supa'); })
         .then(function () {
@@ -603,7 +603,7 @@
     form.addEventListener('submit', go);
     UI.buttons([
       { label: '← 돌아가기', ghost: true, fn: function () { S.screen = 'home'; render(); } },
-      { label: '들어가기', fn: go }
+      { label: '로그인', fn: go }
     ]);
     setTimeout(function () { email.focus(); }, 0);
   }
@@ -611,8 +611,8 @@
   function signOutNow() {
     UI.ask({
       title: '로그아웃할까요?',
-      body: '이 기기에서 나갑니다. 올린 기록은 서버에 그대로 남습니다.',
-      okLabel: '나가기', cancelLabel: '그대로 두기'
+      body: '이 기기에서 로그아웃합니다. 올린 기록은 서버에 그대로 남습니다.',
+      okLabel: '로그아웃', cancelLabel: '그대로 두기'
     }).then(function (ok) {
       if (!ok) return;
       return Supa.signOut().then(function () {
@@ -624,7 +624,7 @@
       }).then(function () {
         markBackend();
         render();
-        UI.say('나왔습니다', { tone: 'ok' });
+        UI.say('로그아웃했습니다', { tone: 'ok' });
       });
     });
   }
@@ -910,27 +910,21 @@
   }
 
   /* ── 홈 ── */
-  /* 지금 어디에 저장되는지 + 들어가고 나가는 길.
-     직원에게는 「가족에게 가는가」가 가장 중요한 정보다. */
+  /* 지금 어디에 저장되는지 「설명」만 둔다.
+     로그인·로그아웃 「행동」은 상단 칩 한 곳에 모았다 — 두 곳에 두면
+     "둘이 다른 건가?" 하고 헷갈린다. 칩은 작아 설명을 못 담으므로
+     안심 문구는 여기에 남긴다. */
   function backendNote() {
     var box = UI.el('div', 'note');
     if (Store.backend === 'supa') {
       var who = (Supa.user && Supa.user.email) || '';
-      box.innerHTML = '✅ <b>서버에 저장됩니다.</b> 가족이 링크로 볼 수 있습니다.' +
-        (who ? '<br><span class="dim">' + UI.esc(who) + '</span>' : '');
-      var out = document.createElement('button');
-      out.type = 'button'; out.className = 'linkbtn';
-      out.textContent = '로그아웃';
-      out.addEventListener('click', signOutNow);
-      box.appendChild(out);
+      box.innerHTML = '✅ <b>서버에 저장됩니다.</b> 가족이 링크로 볼 수 있습니다.<br>' +
+        '<span class="dim">로그아웃은 위쪽 칸을 누르시면 됩니다.' +
+        (who ? ' · ' + UI.esc(who) : '') + '</span>';
     } else {
       box.innerHTML = '지금은 <b>이 기기 안에만</b> 저장됩니다. ' +
-        '다른 기기나 가족에게는 보이지 않습니다.';
-      var go = document.createElement('button');
-      go.type = 'button'; go.className = 'linkbtn';
-      go.textContent = '센터 직원이신가요? 로그인 →';
-      go.addEventListener('click', function () { S.screen = 'signin'; render(); });
-      box.appendChild(go);
+        '다른 기기나 가족에게는 보이지 않습니다.<br>' +
+        '<span class="dim">센터 직원이시면 위쪽 칸을 눌러 로그인하세요.</span>';
     }
     return box;
   }
