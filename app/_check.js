@@ -37,21 +37,34 @@ function storeExports(src) {
   return names.size ? names : null;
 }
 
+/* Supa 는 get 접근자를 섞어 쓴다 */
+function supaExports(src) {
+  const m = src.match(/global\.Supa\s*=\s*\{([\s\S]*?)\n  \};/);
+  if (!m) return null;
+  const names = new Set();
+  m[1].replace(/(?:^|[,{\n])\s*(\w+)\s*:/g, (_, k) => { names.add(k); return _; });
+  m[1].replace(/get\s+(\w+)\s*\(/g, (_, k) => { names.add(k); return _; });
+  return names;
+}
+
 const api = {
   Model: exportsOf(files.model, 'Model'),
   Store: storeExports(files.store),
   Img:   exportsOf(files.image, 'Img'),
-  UI:    exportsOf(files.ui, 'UI')
+  UI:    exportsOf(files.ui, 'UI'),
+  /* 🔑 저장소 구현과 서버 층도 본다.
+     v13 에서 center() 를 만들어놓고 내보내지 않아 칩이 조용히 비었다.
+     그때 이 세 줄이 없어서 못 잡았다. */
+  StoreIdb:  exportsOf(read('js/store-idb.js'),  'StoreIdb'),
+  StoreSupa: exportsOf(read('js/store-supa.js'), 'StoreSupa'),
+  Supa:      supaExports(read('js/supa.js'))
 };
 
 /* 두 저장소가 계약을 똑같이 지키는지 — 이게 어긋나면 갈아끼울 때 터진다 */
 function implExports(file, globalName) {
   try { return exportsOf(read(file), globalName); } catch (e) { return null; }
 }
-const impls = {
-  StoreIdb:  implExports('js/store-idb.js',  'StoreIdb'),
-  StoreSupa: implExports('js/store-supa.js', 'StoreSupa')
-};
+const impls = { StoreIdb: api.StoreIdb, StoreSupa: api.StoreSupa };
 
 let bad = 0;
 for (const [ns, names] of Object.entries(api)) {
@@ -74,7 +87,7 @@ console.log('');
 /* 호출부 점검 */
 const callers = { app: files.app, ui: files.ui, store: files.store };
 for (const [who, src] of Object.entries(callers)) {
-  const re = /\b(Model|Store|Img|UI)\.(\w+)/g;
+  const re = /\b(Model|Store|Img|UI|StoreIdb|StoreSupa|Supa)\.(\w+)/g;
   let m, seen = new Set();
   while ((m = re.exec(src))) {
     const key = m[1] + '.' + m[2];

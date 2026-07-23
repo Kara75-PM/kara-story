@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v12';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v14';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -59,14 +59,18 @@
 
   /* ── 시작 ─────────────────────────────────────── */
 
-  /* 상단 칩 — 지금 어디에 저장되는지 늘 보이게 한다.
-     「내가 올린 게 가족에게 가는가」를 직원이 항상 알아야 한다. */
+  /* 상단 칩 — 지금 어디에 저장되는지 + 들어가고 나가는 길.
+     「내가 올린 게 가족에게 가는가」를 직원이 항상 알아야 하고,
+     그걸 보는 자리에서 바로 바꿀 수 있어야 한다.
+     사용자 제안: 그냥 누르라고만 하지 말고 「로그인/로그아웃」을 붙여 준다. */
   function markBackend() {
     if (Store.backend === 'supa') {
       var c = (StoreSupa.center && StoreSupa.center()) || '';
-      UI.setChip(c ? c + ' · 서버에 저장' : '서버에 저장 중', 'ok');
+      UI.setChip((c ? c + ' · ' : '') + '서버에 저장 · 로그아웃', 'ok', signOutNow);
     } else {
-      UI.setChip('이 기기에만 저장 (체험)', 'info');
+      UI.setChip('이 기기에만 저장 · 로그인', 'info', function () {
+        S.screen = 'signin'; render();
+      });
     }
   }
 

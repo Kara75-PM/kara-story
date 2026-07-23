@@ -88,9 +88,22 @@
         if (!mine)  throw new Error('직원 정보를 찾지 못했습니다. 센터에 문의해 주세요.');
         if (!mine.active)    throw new Error('사용이 중지된 계정입니다.');
         if (!mine.center_id) throw new Error('아직 센터가 지정되지 않았습니다. 센터에 문의해 주세요.');
-        mine.center_name = mine.centers && mine.centers.name;
+        /* 딸려오는 센터는 서버 판단에 따라 객체로도, 한 칸짜리 배열로도 온다.
+           둘 다 받아준다 — 한쪽만 처리하면 이름이 조용히 사라진다. */
+        var c = mine.centers;
+        if (Array.isArray(c)) c = c[0];
+        mine.center_name = (c && c.name) || null;
         me = mine;
-        return me;
+        if (me.center_name) return me;
+
+        /* 그래도 비면 센터를 따로 물어본다. 이름이 없으면 직원은
+           「지금 어느 센터로 들어와 있는지」를 알 길이 없다. */
+        return Supa.rest('centers?select=name&id=eq.' + me.center_id)
+          .then(function (cs) {
+            me.center_name = ((cs || [])[0] || {}).name || null;
+            return me;
+          })
+          .catch(function () { return me; });
       });
   }
 
@@ -276,6 +289,7 @@
     backend: 'supa',
     ready: ready,
     forget: forget,
+    center: center,
     listElders: listElders,
     getElder: getElder,
     saveElder: saveElder,

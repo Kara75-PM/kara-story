@@ -76,6 +76,10 @@
   .head .sp{margin-left:auto}
   .chip{font-size:.72rem; font-weight:700; letter-spacing:.06em; padding:.3rem .6rem;
     border-radius:999px; background:var(--surface-2); color:var(--ink-2); border:1px solid var(--line)}
+  /* 누를 수 있는 칩 — 눌러서 로그인·로그아웃한다 */
+  .chip.tap{cursor:pointer; transition:.12s}
+  .chip.tap:hover{filter:brightness(.97); border-color:var(--accent)}
+  .chip.tap:active{transform:scale(.97)}
 
   /* ── 카드 ── */
   .card{background:var(--surface); border:1px solid var(--line); border-radius:6px;
@@ -394,7 +398,7 @@
     <span class="chip" id="chip">준비 중</span>
   </header>
   <div style="font-size:.68rem;color:var(--muted);letter-spacing:.1em;margin:-.5rem 0 .8rem">
-    v12 · 2026-07-24
+    v14 · 2026-07-24
   </div>
 
   <main id="view" tabindex="-1"></main>
@@ -405,15 +409,15 @@
 <div class="mask" id="mask" role="dialog" aria-modal="true"><div class="dlg" id="dlg"></div></div>
 
 <!-- ?v= 는 캐시 때문에 옛 파일이 남는 것을 막는다. 고칠 때마다 숫자를 올린다. -->
-<script src="js/config.js?v=12"></script>
-<script src="js/model.js?v=12"></script>
-<script src="js/sample.js?v=12"></script>
-<script src="js/supa.js?v=12"></script>
-<script src="js/store-idb.js?v=12"></script>
-<script src="js/store-supa.js?v=12"></script>
-<script src="js/store.js?v=12"></script>
-<script src="js/image.js?v=12"></script>
-<script src="js/ui.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/config.js?v=14"></script>
+<script src="js/model.js?v=14"></script>
+<script src="js/sample.js?v=14"></script>
+<script src="js/supa.js?v=14"></script>
+<script src="js/store-idb.js?v=14"></script>
+<script src="js/store-supa.js?v=14"></script>
+<script src="js/store.js?v=14"></script>
+<script src="js/image.js?v=14"></script>
+<script src="js/ui.js?v=14"></script>
+<script src="js/app.js?v=14"></script>
 </body>
 </html>
