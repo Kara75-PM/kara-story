@@ -70,7 +70,9 @@
   .tbtn input{display:none}
 
   /* ── 머리 ── */
-  .head{display:flex; align-items:center; gap:var(--s2); padding:var(--s2) 0 var(--s3)}
+  /* 상단 고정 — 저장 위치(칩)는 스크롤해도 늘 보여야 한다 */
+  .head{display:flex; align-items:center; gap:var(--s2); padding:var(--s2) 0 var(--s3);
+    position:sticky; top:0; z-index:20; background:var(--ground)}
   .head .ttl{font-family:var(--display); font-size:1.3rem; letter-spacing:.05em; margin:0}
   .head .sub{font-size:.72rem; color:var(--muted); letter-spacing:.1em; margin-top:.1rem}
   .head .sp{margin-left:auto}
@@ -394,7 +396,7 @@
     <span class="chip" id="chip">준비 중</span>
   </header>
   <div style="font-size:.68rem;color:var(--muted);letter-spacing:.1em;margin:-.5rem 0 .8rem">
-    v15 · 2026-07-24
+    v17 · 2026-07-24
   </div>
 
   <main id="view" tabindex="-1"></main>
@@ -405,15 +407,15 @@
 <div class="mask" id="mask" role="dialog" aria-modal="true"><div class="dlg" id="dlg"></div></div>
 
 <!-- ?v= 는 캐시 때문에 옛 파일이 남는 것을 막는다. 고칠 때마다 숫자를 올린다. -->
-<script src="js/config.js?v=15"></script>
-<script src="js/model.js?v=15"></script>
-<script src="js/sample.js?v=15"></script>
-<script src="js/supa.js?v=15"></script>
-<script src="js/store-idb.js?v=15"></script>
-<script src="js/store-supa.js?v=15"></script>
-<script src="js/store.js?v=15"></script>
-<script src="js/image.js?v=15"></script>
-<script src="js/ui.js?v=15"></script>
-<script src="js/app.js?v=15"></script>
+<script src="js/config.js?v=17"></script>
+<script src="js/model.js?v=17"></script>
+<script src="js/sample.js?v=17"></script>
+<script src="js/supa.js?v=17"></script>
+<script src="js/store-idb.js?v=17"></script>
+<script src="js/store-supa.js?v=17"></script>
+<script src="js/store.js?v=17"></script>
+<script src="js/image.js?v=17"></script>
+<script src="js/ui.js?v=17"></script>
+<script src="js/app.js?v=17"></script>
 </body>
 </html>

@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v15';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v17';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -63,15 +63,21 @@
      「내가 올린 게 가족에게 가는가」를 직원이 항상 알아야 하고,
      그걸 보는 자리에서 바로 바꿀 수 있어야 한다.
      사용자 제안: 그냥 누르라고만 하지 말고 「로그인/로그아웃」을 붙여 준다. */
-  function markBackend() {
+  function markBackend(tappable) {
     if (Store.backend === 'supa') {
       var c = (StoreSupa.center && StoreSupa.center()) || '';
-      UI.setChip((c ? c + ' · ' : '') + '서버에 저장 · 로그아웃', 'ok', signOutNow);
+      UI.setChip((c ? c + ' · ' : '') + '서버에 저장 · 로그아웃', 'ok',
+        tappable ? signOutNow : null);
     } else {
-      UI.setChip('이 기기에만 저장 · 로그인', 'info', function () {
-        S.screen = 'signin'; render();
-      });
+      UI.setChip('이 기기에만 저장 · 로그인', 'info',
+        tappable ? function () { S.screen = 'signin'; render(); } : null);
     }
+  }
+
+  /* 칩을 눌러 로그인·로그아웃하는 것은 「홈 계열」에서만 허용한다.
+     큐(사진 편집)·로그인 화면에서 누르면 하던 작업이 통째로 날아간다. */
+  function chipTappable() {
+    return S.screen === 'home' || S.screen === 'feedback' || S.screen === 'intro';
   }
 
   function boot() {
@@ -94,11 +100,10 @@
       })
       .then(refreshData)
       .then(function () {
-        markBackend();
         /* 처음 오신 분에게는 여기가 뭘 하는 곳인지 먼저 알린다.
            맥락 없이 화면부터 뜨면 무엇을 올려야 하는지 알 수 없다. */
         if (!recalled(SEEN_KEY) && !S.todayRecords.length) S.screen = 'intro';
-        render();
+        render();   /* render 가 칩을 세운다 */
       })
       .catch(function (e) {
         UI.setChip('저장소 오류', 'warn');
@@ -232,18 +237,18 @@
     var item = S.queue[S.idx];
     if (!item || item.prepared) { render(); return; }
 
-    UI.setChip('사진 읽는 중…');
+    /* 칩은 「저장 위치 + 로그인/로그아웃」 전용이다.
+       읽는 중·저장 중 같은 진행 상태를 칩에 쓰지 않는다 —
+       화면(버튼)이 이미 진행을 말한다. */
     Img.prepare(item.file)
       .then(function (prep) {
         item.prepared = prep;
         refreshView(item);
         if (!item.stripUrl) item.stripUrl = item.viewUrl;
-        UI.setChip('브라우저에 저장 중', 'ok');
         render();
       })
       .catch(function (e) {
         item.error = (e && e.message) || '사진을 읽지 못했습니다';
-        UI.setChip('브라우저에 저장 중', 'ok');
         render();
       });
   }
@@ -320,8 +325,7 @@
     if (!item.elderId) { UI.say('어느 어르신 것인지 골라주세요', { tone: 'warn' }); return; }
 
     item.saving = true;
-    render();
-    UI.setChip('저장 중…');
+    render();   /* 저장 버튼이 「저장 중…」으로 바뀐다 */
 
     var crop = { top: item.cropTop, bottom: item.cropBottom };
     var rec = Model.makeRecord({
@@ -346,8 +350,8 @@
         item.saving = false;
         Img.dispose(item.prepared);
         item.prepared = null;
-        UI.setChip('브라우저에 저장 중', 'ok');
-        /* 알리지 않는다 — 썸네일에 ✓ 가 뜨고 다음 장으로 넘어가는 것이 이미 답이다 */
+        /* 알리지 않는다 — 썸네일에 ✓ 가 뜨고 다음 장으로 넘어가는 것이 이미 답이다.
+           칩도 안 건드린다 — 저장 위치는 그대로다 */
         return refreshData();
       })
       .then(function () {
@@ -368,7 +372,7 @@
       .catch(function (e) {
         item.saving = false;
         item.error = (e && e.message) || '저장하지 못했습니다';
-        UI.setChip('저장 실패', 'warn');
+        UI.say(item.error, { tone: 'warn', ms: 8000 });
         render();
       });
   }
@@ -510,6 +514,8 @@
 
   function render() {
     UI.clear();
+    /* 칩은 화면마다 다시 세운다 — 홈 계열에서만 눌러서 로그인/로그아웃한다 */
+    markBackend(chipTappable());
     if (S.screen === 'signin')   return renderSignIn();
     if (S.screen === 'intro')    return renderIntro();
     if (S.screen === 'home')     return renderHome();
@@ -584,17 +590,18 @@
           return refreshData();
         })
         .then(function () {
-          markBackend();
-          render();
-          UI.say('로그인했습니다 — 이제 올린 작품이 가족에게 갑니다', { tone: 'ok', ms: 6000 });
+          render();   /* render 가 칩을 「서버에 저장 · 로그아웃」으로 세운다 */
+          UI.say('로그인했습니다', { tone: 'ok', ms: 5000 });
         })
         .catch(function (err) {
           busy = false;
           /* 로그인은 됐는데 센터가 없는 경우도 여기로 온다.
-             그때는 서버 저장소를 쓸 수 없으니 체험 모드로 되돌린다. */
+             그때는 서버 저장소를 쓸 수 없으니 체험 모드로 되돌린다.
+             ⚠️ .then(markBackend) 로 넘기면 Promise 결과가 tappable 인자로
+                들어가 칩이 잘못 눌린다. 반드시 함수로 감싼다. */
           Supa.signOut();
           StoreSupa.forget();
-          Store.use('idb').then(markBackend);
+          Store.use('idb').then(function () { markBackend(chipTappable()); });
           UI.say(err.message || '로그인하지 못했습니다', { tone: 'warn', ms: 9000 });
           pw.focus();
         });
@@ -622,8 +629,7 @@
         S.screen = 'home';
         return refreshData();
       }).then(function () {
-        markBackend();
-        render();
+        render();   /* render 가 칩을 「이 기기에만 저장 · 로그인」으로 세운다 */
         UI.say('로그아웃했습니다', { tone: 'ok' });
       });
     });
@@ -909,26 +915,6 @@
     ]);
   }
 
-  /* ── 홈 ── */
-  /* 지금 어디에 저장되는지 「설명」만 둔다.
-     로그인·로그아웃 「행동」은 상단 칩 한 곳에 모았다 — 두 곳에 두면
-     "둘이 다른 건가?" 하고 헷갈린다. 칩은 작아 설명을 못 담으므로
-     안심 문구는 여기에 남긴다. */
-  function backendNote() {
-    var box = UI.el('div', 'note');
-    if (Store.backend === 'supa') {
-      var who = (Supa.user && Supa.user.email) || '';
-      box.innerHTML = '✅ <b>서버에 저장됩니다.</b> 가족이 링크로 볼 수 있습니다.<br>' +
-        '<span class="dim">로그아웃은 위쪽 칸을 누르시면 됩니다.' +
-        (who ? ' · ' + UI.esc(who) : '') + '</span>';
-    } else {
-      box.innerHTML = '지금은 <b>이 기기 안에만</b> 저장됩니다. ' +
-        '다른 기기나 가족에게는 보이지 않습니다.<br>' +
-        '<span class="dim">센터 직원이시면 위쪽 칸을 눌러 로그인하세요.</span>';
-    }
-    return box;
-  }
-
   /* 의견을 여쭙는 칸. 한 바퀴 돌고 난 직후에는 맨 위로 올린다. */
   function feedbackCard(highlight) {
     var c = UI.card();
@@ -1071,17 +1057,10 @@
     /* 🗑 지운 것 */
     if (S.deletedRecords.length) renderTrash();
 
-    /* 전체 현황 */
-    Store.stats().then(function (s) {
-      var c3 = UI.card();
-      c3.appendChild(UI.el('p', 'eyebrow', '지금까지'));
-      var st2 = UI.el('div', 'stat');
-      st2.appendChild(UI.el('span', null, '어르신 ' + s.elders + '분'));
-      st2.appendChild(UI.el('span', null, '기록 ' + s.records + '장'));
-      st2.appendChild(UI.el('span', null, Img.humanSize(s.bytes)));
-      c3.appendChild(st2);
-      c3.appendChild(backendNote());
-    });
+    /* 「지금까지」 누적 통계와 저장위치 설명은 없앴다.
+       - 누적 통계는 관리자 리포트지 직원의 일상 업무가 아니다
+       - 저장 위치는 상단 고정 칩이 항상 보여준다
+       (사용자 결정, 2026-07-24) */
 
     /* 아직 의견을 안 주신 분께는 맨 아래에도 길을 둔다.
        위쪽 카드는 한 바퀴 돈 직후에만 뜬다. */
