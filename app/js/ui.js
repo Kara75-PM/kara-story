@@ -60,6 +60,27 @@
       else n.addEventListener('click', b.fn);
       foot.appendChild(n);
     });
+    /* 버튼이 바뀌면 높이도 바뀐다 — 본문 여백을 다시 잰다 */
+    requestAnimationFrame(syncFootPad);
+  }
+
+  /* 파일을 고르는 작은 버튼 (상단 바에 놓는 용도) */
+  function pickButton(label, opts, onFiles) {
+    opts = opts || {};
+    var lab = document.createElement('label');
+    lab.className = 'tbtn' + (opts.accent ? ' add' : '');
+    lab.innerHTML = esc(label);
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    if (opts.multiple) inp.multiple = true;
+    if (opts.capture) inp.setAttribute('capture', 'environment');
+    inp.addEventListener('change', function (e) {
+      onFiles(e.target.files);
+      e.target.value = '';
+    });
+    lab.appendChild(inp);
+    return lab;
   }
 
   function say(msg, ms) {
@@ -82,23 +103,39 @@
     return p;
   }
 
-  /* 대기 중인 사진 줄 */
-  function queueStrip(host, items, curIdx) {
+  /* 대기 중인 사진 줄 — 누르면 그 사진으로 이동한다 */
+  function queueStrip(host, items, curIdx, onPick) {
     if (!items || items.length < 2) return null;
     var q = el('div', 'queue');
     items.forEach(function (it, i) {
-      var d = el('div', 'q' + (i === curIdx ? ' now' : '') + (it.saved ? ' done' : ''));
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'q' + (i === curIdx ? ' now' : '') + (it.saved ? ' done' : '');
+      b.setAttribute('aria-label', (i + 1) + '번째 사진으로 이동');
+      if (i === curIdx) b.setAttribute('aria-current', 'true');
       if (it.thumbUrl) {
         var im = document.createElement('img');
         im.src = it.thumbUrl;
-        im.alt = (i + 1) + '번째 사진';
-        d.appendChild(im);
+        im.alt = '';
+        b.appendChild(im);
       }
-      if (it.saved) d.appendChild(el('span', 'mk', '✓'));
-      q.appendChild(d);
+      b.appendChild(el('span', 'no', String(i + 1)));
+      if (it.saved) b.appendChild(el('span', 'mk', '✓'));
+      if (onPick) b.addEventListener('click', function () { onPick(i); });
+      q.appendChild(b);
     });
     host.appendChild(q);
+    host.appendChild(el('div', 'queuehint', '사진을 누르면 그 장으로 바로 이동합니다.'));
     return q;
+  }
+
+  /* 하단 고정 버튼의 실제 높이만큼 본문 아래를 비운다.
+     기기마다 버튼 높이가 달라 CSS 고정값으로는 잘린다. */
+  function syncFootPad() {
+    var bar = document.querySelector('.foot');
+    if (!bar) return;
+    var h = bar.offsetHeight || 0;
+    document.body.style.paddingBottom = (h + 24) + 'px';
   }
 
   function msg(host, tone, html) {
@@ -117,11 +154,19 @@
     setChip: setChip,
     card: card,
     buttons: buttons,
+    pickButton: pickButton,
     say: say,
     progress: progress,
     queueStrip: queueStrip,
+    syncFootPad: syncFootPad,
     msg: msg,
     empty: empty,
     get view() { return view; }
   };
+
+  /* 화면 크기·방향이 바뀌면 여백을 다시 잰다 */
+  global.addEventListener('resize', function () { syncFootPad(); });
+  global.addEventListener('orientationchange', function () {
+    setTimeout(syncFootPad, 250);
+  });
 })(window);

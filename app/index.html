@@ -48,9 +48,21 @@
     background:var(--ground); color:var(--ink);
     font-family:var(--body); font-size:16px; line-height:1.65;
     -webkit-font-smoothing:antialiased;
-    padding-bottom:calc(5rem + env(safe-area-inset-bottom));
+    /* 하단 고정 버튼에 가리지 않게. 실제 높이는 JS 가 다시 잰다 */
+    padding-bottom:calc(7rem + env(safe-area-inset-bottom));
   }
   .wrap{max-width:720px; margin:0 auto; padding:var(--s3)}
+
+  /* ── 큐 상단 바 ── */
+  .qbar{display:flex; align-items:center; gap:.5rem; margin-bottom:var(--s2)}
+  .qbar .sp{margin-left:auto}
+  .tbtn{font:inherit; font-size:.85rem; font-weight:700; cursor:pointer;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink-2);
+    border-radius:999px; padding:.4rem .8rem; transition:.12s; display:inline-flex;
+    align-items:center; gap:.3rem}
+  .tbtn:hover{border-color:var(--accent); color:var(--accent)}
+  .tbtn.add{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+  .tbtn input{display:none}
 
   /* ── 머리 ── */
   .head{display:flex; align-items:center; gap:var(--s2); padding:var(--s2) 0 var(--s3)}
@@ -105,13 +117,21 @@
     border-radius:999px; padding:.2rem .55rem; font-variant-numeric:tabular-nums}
 
   /* ── 대기 목록 ── */
-  .queue{display:flex; gap:.4rem; overflow-x:auto; padding:.2rem 0 .5rem; margin-top:var(--s2)}
-  .queue .q{flex:none; width:52px; height:52px; border-radius:5px; overflow:hidden;
-    border:2px solid var(--line); background:var(--surface-2); position:relative}
-  .queue .q.now{border-color:var(--accent)}
-  .queue .q.done{opacity:.45}
-  .queue .q img{width:100%; height:100%; object-fit:cover; display:block}
-  .queue .q .mk{position:absolute; right:2px; bottom:2px; font-size:.7rem}
+  .queue{display:flex; gap:.45rem; overflow-x:auto; padding:.3rem 0 .6rem; margin-top:var(--s2);
+    -webkit-overflow-scrolling:touch}
+  .queue .q{flex:none; width:56px; height:56px; border-radius:6px; overflow:hidden;
+    border:2px solid var(--line); background:var(--surface-2); position:relative;
+    cursor:pointer; padding:0; transition:.12s}
+  .queue .q:hover{border-color:var(--accent)}
+  .queue .q.now{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+  .queue .q.done{opacity:.5}
+  .queue .q img{width:100%; height:100%; object-fit:cover; display:block; pointer-events:none}
+  .queue .q .no{position:absolute; left:0; top:0; font-size:.62rem; font-weight:700;
+    background:rgba(0,0,0,.55); color:#fff; padding:.05rem .28rem; border-bottom-right-radius:4px;
+    font-variant-numeric:tabular-nums}
+  .queue .q .mk{position:absolute; right:2px; bottom:1px; font-size:.7rem; color:#fff;
+    text-shadow:0 0 3px rgba(0,0,0,.8)}
+  .queuehint{font-size:.76rem; color:var(--muted); margin-top:-.2rem}
 
   /* ── 버튼 ── */
   .foot{position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--surface);

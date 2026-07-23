@@ -59,9 +59,10 @@
 
   /* ── 파일 받기 ────────────────────────────────── */
 
-  function acceptFiles(fileList) {
+  /* 파일 목록을 걸러 큐 항목으로 만든다 */
+  function toItems(fileList) {
     var files = Array.prototype.slice.call(fileList || []);
-    if (!files.length) return;
+    if (!files.length) return [];
 
     var rejected = [];
     var ok = files.filter(function (f) {
@@ -75,32 +76,61 @@
       return true;
     });
 
-    if (ok.length > MAX_FILES) {
-      UI.say('한 번에 ' + MAX_FILES + '장까지만 받습니다');
-      ok = ok.slice(0, MAX_FILES);
-    }
-    if (!ok.length) {
-      UI.say('사진 파일이 아닙니다');
-      return;
-    }
-    if (rejected.length) {
-      UI.say(rejected.length + '개는 사진이 아니라 건너뜁니다');
-    }
+    if (rejected.length) UI.say(rejected.length + '개는 사진이 아니라 건너뜁니다');
+    if (!ok.length) { UI.say('사진 파일이 아닙니다'); return []; }
 
     /* 파일명 순으로 — 폰 사진은 대개 시간순이 된다 */
-    ok.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'ko', { numeric: true }); });
+    ok.sort(function (a, b) {
+      return String(a.name).localeCompare(String(b.name), 'ko', { numeric: true });
+    });
 
-    S.queue = ok.map(function (f) {
+    return ok.map(function (f) {
       return {
         file: f, prepared: null, thumbUrl: null,
         elderId: null, note: '', cropRatio: 0.15,
         saved: false, error: null
       };
     });
+  }
+
+  /* 처음 고를 때 — 큐를 새로 만든다 */
+  function acceptFiles(fileList) {
+    var items = toItems(fileList);
+    if (!items.length) return;
+    if (items.length > MAX_FILES) {
+      UI.say('한 번에 ' + MAX_FILES + '장까지만 받습니다');
+      items = items.slice(0, MAX_FILES);
+    }
+    S.queue = items;
     S.idx = 0;
     S.screen = 'queue';
     render();
     prepareCurrent();
+  }
+
+  /* 작업 중에 더 넣을 때 — 뒤에 이어 붙인다 */
+  function appendFiles(fileList) {
+    var items = toItems(fileList);
+    if (!items.length) return;
+
+    var room = MAX_FILES - S.queue.length;
+    if (room <= 0) { UI.say('한 번에 ' + MAX_FILES + '장까지만 받습니다'); return; }
+    if (items.length > room) {
+      UI.say(room + '장만 더 넣었습니다 (최대 ' + MAX_FILES + '장)');
+      items = items.slice(0, room);
+    }
+
+    var wasLast = (S.idx === S.queue.length - 1);
+    S.queue = S.queue.concat(items);
+    UI.say(items.length + '장 더 넣었습니다');
+
+    /* 마지막 장에 있었다면 새로 넣은 첫 장으로 옮겨준다 */
+    if (wasLast) {
+      S.idx = S.queue.length - items.length;
+      prepareCurrent();
+    } else {
+      render();
+    }
   }
 
   /* 지금 장을 읽어 화면에 올린다 */
@@ -134,6 +164,13 @@
 
   function goPrev() {
     if (S.idx > 0) { S.idx--; prepareCurrent(); }
+  }
+
+  /* 썸네일을 눌러 그 장으로 바로 */
+  function goTo(i) {
+    if (i < 0 || i >= S.queue.length || i === S.idx) return;
+    S.idx = i;
+    prepareCurrent();
   }
 
   function skipCurrent() {
@@ -244,6 +281,22 @@
     var item = S.queue[S.idx];
     if (!item) { finishQueue(); return; }
 
+    /* 상단 바 — 나가기 · 더 넣기 */
+    var bar = UI.el('div', 'qbar');
+    var out = document.createElement('button');
+    out.type = 'button';
+    out.className = 'tbtn';
+    out.textContent = '✕ 나가기';
+    out.addEventListener('click', function () {
+      if (S.queue.length > 1 && !confirm('고른 사진 ' + S.queue.length + '장을 모두 버리고 나갈까요?')) return;
+      finishQueue();
+    });
+    bar.appendChild(out);
+    bar.appendChild(UI.el('div', 'sp'));
+    bar.appendChild(UI.pickButton('📷 더 찍기', { capture: true }, appendFiles));
+    bar.appendChild(UI.pickButton('＋ 더 넣기', { multiple: true, accent: true }, appendFiles));
+    UI.view.appendChild(bar);
+
     var c = UI.card();
     UI.progress(c, S.idx + 1, S.queue.length);
     c.appendChild(UI.el('p', 'eyebrow', '사진 확인'));
@@ -271,15 +324,22 @@
       c.appendChild(meta);
 
       c.appendChild(UI.el('div', 'note',
-        '사진이 <b>똑바로</b> 보이면 다음으로 넘어가세요. ' +
-        '누워 보이면 알려주세요 — 고쳐야 합니다.'));
+        '사진이 <b>똑바로</b> 보이면 다음으로 넘어가세요.'));
+
+      /* 이 사진 빼기 — 하단 버튼과 섞이지 않게 여기 둔다 */
+      var rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'tbtn';
+      rm.style.marginTop = '.6rem';
+      rm.textContent = '🗑 이 사진 빼기';
+      rm.addEventListener('click', skipCurrent);
+      c.appendChild(rm);
     }
 
-    UI.queueStrip(c, S.queue, S.idx);
+    UI.queueStrip(c, S.queue, S.idx, goTo);
 
     UI.buttons([
-      { label: '건너뛰기', fn: skipCurrent, ghost: true },
-      { label: S.idx > 0 ? '← 이전' : '그만두기', fn: S.idx > 0 ? goPrev : finishQueue, ghost: true },
+      { label: '← 이전', fn: goPrev, ghost: true, off: S.idx === 0 },
       { label: S.idx < S.queue.length - 1 ? '다음 →' : '마치기',
         fn: goNext, off: !item.prepared && !item.error }
     ]);
