@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v10';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v12';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -59,17 +59,38 @@
 
   /* ── 시작 ─────────────────────────────────────── */
 
+  /* 상단 칩 — 지금 어디에 저장되는지 늘 보이게 한다.
+     「내가 올린 게 가족에게 가는가」를 직원이 항상 알아야 한다. */
+  function markBackend() {
+    if (Store.backend === 'supa') {
+      var c = (StoreSupa.center && StoreSupa.center()) || '';
+      UI.setChip(c ? c + ' · 서버에 저장' : '서버에 저장 중', 'ok');
+    } else {
+      UI.setChip('이 기기에만 저장 (체험)', 'info');
+    }
+  }
+
   function boot() {
     UI.init();
     UI.setChip('여는 중…');
-    Store.ready()
+
+    /* 로그인해 둔 적이 있으면 서버로, 아니면 체험 모드로 연다.
+       서버 쪽이 안 되면(계정 중지·센터 미지정 등) 체험 모드로 물러난다 —
+       앱이 아예 안 열리는 것보다 낫다. */
+    var want = (global.Supa && Supa.signedIn()) ? 'supa' : 'idb';
+    Store.use(want)
+      .catch(function (e) {
+        if (want !== 'supa') throw e;
+        UI.say(e.message || '서버에 연결하지 못했습니다', { tone: 'warn', ms: 9000 });
+        return Store.use('idb');
+      })
       /* 지운 지 오래된 것을 조용히 정리한다. 실패해도 앱은 계속 돈다. */
       .then(function () {
         return Store.purgeExpired(TRASH_DAYS).catch(function () { return 0; });
       })
       .then(refreshData)
       .then(function () {
-        UI.setChip('브라우저에 저장 중', 'ok');
+        markBackend();
         /* 처음 오신 분에게는 여기가 뭘 하는 곳인지 먼저 알린다.
            맥락 없이 화면부터 뜨면 무엇을 올려야 하는지 알 수 없다. */
         if (!recalled(SEEN_KEY) && !S.todayRecords.length) S.screen = 'intro';
@@ -485,6 +506,7 @@
 
   function render() {
     UI.clear();
+    if (S.screen === 'signin')   return renderSignIn();
     if (S.screen === 'intro')    return renderIntro();
     if (S.screen === 'home')     return renderHome();
     if (S.screen === 'queue')    return renderQueue();
@@ -504,6 +526,103 @@
         UI.say('견본을 만들지 못했습니다', { tone: 'warn' });
         render();
       });
+  }
+
+  /* ── 센터 직원 로그인 ─────────────────────────────
+   *
+   * 가입 화면은 없다. 계정은 센터가 만들어 준다.
+   * 직원이 우리 앱에 스스로 가입할 이유가 없고, 그래야 아무나 못 들어온다.
+   * (Supabase 기본 메일이 시간당 2통이라 확인 메일에 기댈 수도 없다) */
+  function renderSignIn() {
+    var c = UI.card();
+    c.appendChild(UI.el('p', 'eyebrow', '센터 직원'));
+    c.appendChild(UI.el('h2', null, '로그인'));
+    c.appendChild(UI.el('p', 'lede',
+      '로그인하시면 올린 작품이 <b>서버에 저장되어 가족에게 갑니다.</b><br>' +
+      '계정은 센터에서 만들어 드립니다.'));
+
+    var form = document.createElement('form');
+    form.className = 'signin';
+
+    function field(label, type, name, hint) {
+      var w = UI.el('div', 'q');
+      w.appendChild(UI.el('p', 'qt', label));
+      if (hint) w.appendChild(UI.el('p', 'qh', hint));
+      var i = document.createElement('input');
+      i.type = type; i.name = name; i.className = 'memo';
+      i.autocomplete = (type === 'password') ? 'current-password' : 'username';
+      i.required = true;
+      w.appendChild(i);
+      form.appendChild(w);
+      return i;
+    }
+
+    var email = field('이메일', 'email', 'email');
+    var pw    = field('비밀번호', 'password', 'password');
+    c.appendChild(form);
+
+    var busy = false;
+    function go(e) {
+      if (e) e.preventDefault();
+      if (busy) return;
+      if (!email.value.trim() || !pw.value) {
+        UI.say('이메일과 비밀번호를 넣어주세요', { tone: 'warn' });
+        (email.value.trim() ? pw : email).focus();
+        return;
+      }
+      busy = true;
+      UI.setChip('들어가는 중…');
+      Supa.signIn(email.value, pw.value)
+        .then(function () { return Store.use('supa'); })
+        .then(function () {
+          pw.value = '';
+          S.screen = 'home';
+          return refreshData();
+        })
+        .then(function () {
+          markBackend();
+          render();
+          UI.say('로그인했습니다 — 이제 올린 작품이 가족에게 갑니다', { tone: 'ok', ms: 6000 });
+        })
+        .catch(function (err) {
+          busy = false;
+          /* 로그인은 됐는데 센터가 없는 경우도 여기로 온다.
+             그때는 서버 저장소를 쓸 수 없으니 체험 모드로 되돌린다. */
+          Supa.signOut();
+          StoreSupa.forget();
+          Store.use('idb').then(markBackend);
+          UI.say(err.message || '로그인하지 못했습니다', { tone: 'warn', ms: 9000 });
+          pw.focus();
+        });
+    }
+
+    form.addEventListener('submit', go);
+    UI.buttons([
+      { label: '← 돌아가기', ghost: true, fn: function () { S.screen = 'home'; render(); } },
+      { label: '들어가기', fn: go }
+    ]);
+    setTimeout(function () { email.focus(); }, 0);
+  }
+
+  function signOutNow() {
+    UI.ask({
+      title: '로그아웃할까요?',
+      body: '이 기기에서 나갑니다. 올린 기록은 서버에 그대로 남습니다.',
+      okLabel: '나가기', cancelLabel: '그대로 두기'
+    }).then(function (ok) {
+      if (!ok) return;
+      return Supa.signOut().then(function () {
+        StoreSupa.forget();
+        return Store.use('idb');
+      }).then(function () {
+        S.screen = 'home';
+        return refreshData();
+      }).then(function () {
+        markBackend();
+        render();
+        UI.say('나왔습니다', { tone: 'ok' });
+      });
+    });
   }
 
   /* ── 처음 오신 분께 — 조작도 스크롤도 없는 한 화면 ── */
@@ -787,6 +906,31 @@
   }
 
   /* ── 홈 ── */
+  /* 지금 어디에 저장되는지 + 들어가고 나가는 길.
+     직원에게는 「가족에게 가는가」가 가장 중요한 정보다. */
+  function backendNote() {
+    var box = UI.el('div', 'note');
+    if (Store.backend === 'supa') {
+      var who = (Supa.user && Supa.user.email) || '';
+      box.innerHTML = '✅ <b>서버에 저장됩니다.</b> 가족이 링크로 볼 수 있습니다.' +
+        (who ? '<br><span class="dim">' + UI.esc(who) + '</span>' : '');
+      var out = document.createElement('button');
+      out.type = 'button'; out.className = 'linkbtn';
+      out.textContent = '로그아웃';
+      out.addEventListener('click', signOutNow);
+      box.appendChild(out);
+    } else {
+      box.innerHTML = '지금은 <b>이 기기 안에만</b> 저장됩니다. ' +
+        '다른 기기나 가족에게는 보이지 않습니다.';
+      var go = document.createElement('button');
+      go.type = 'button'; go.className = 'linkbtn';
+      go.textContent = '센터 직원이신가요? 로그인 →';
+      go.addEventListener('click', function () { S.screen = 'signin'; render(); });
+      box.appendChild(go);
+    }
+    return box;
+  }
+
   /* 의견을 여쭙는 칸. 한 바퀴 돌고 난 직후에는 맨 위로 올린다. */
   function feedbackCard(highlight) {
     var c = UI.card();
@@ -938,9 +1082,7 @@
       st2.appendChild(UI.el('span', null, '기록 ' + s.records + '장'));
       st2.appendChild(UI.el('span', null, Img.humanSize(s.bytes)));
       c3.appendChild(st2);
-      c3.appendChild(UI.el('div', 'note',
-        '지금은 <b>이 브라우저 안에만</b> 저장됩니다. ' +
-        '다른 기기나 가족에게는 아직 보이지 않습니다.'));
+      c3.appendChild(backendNote());
     });
 
     /* 아직 의견을 안 주신 분께는 맨 아래에도 길을 둔다.
