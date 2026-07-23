@@ -106,6 +106,56 @@
   .way .ic{font-size:1.2rem; flex:none}
   .way .d{font-size:.78rem; font-weight:400; color:var(--muted); display:block; margin-top:.1rem}
   .way input{display:none}
+  /* 견본 — 사진이 없는 사람이 여기서 막히지 않도록 눈에 띄게 둔다 */
+  .way.demo{grid-column:1/-1; font:inherit; font-size:.95rem; font-weight:700;
+    border-color:var(--accent); background:var(--accent-soft); color:var(--accent)}
+  .way.demo:disabled{opacity:.6; cursor:default}
+
+  /* ── 처음 오신 분께 ──
+     목표: 스크롤 없이 한 화면. 짧은 기기에서도 들어가야 하므로
+     화면 높이에 따라 두 단계로 조인다. */
+  .intro{text-align:center; padding:var(--s4) var(--s3)}
+  .intro h2{font-size:1.5rem; line-height:1.45; margin-bottom:var(--s3)}
+  .introbody p{margin:0 0 .9rem; color:var(--ink-2); font-size:.98rem; line-height:1.7}
+  .introbody .two{display:flex; flex-wrap:wrap; gap:.4rem; justify-content:center;
+    margin-top:var(--s3); margin-bottom:0}
+  .introbody .two span{background:var(--surface-2); border-radius:999px;
+    padding:.4rem .8rem; font-size:.86rem; color:var(--ink-2)}
+  .introbody .safe{margin-top:var(--s3); margin-bottom:0; padding-top:var(--s3);
+    border-top:1px solid var(--line); font-size:.86rem; color:var(--muted); line-height:1.6}
+
+  @media (max-height:820px){
+    .intro{padding:var(--s3) var(--s3)}
+    .intro h2{font-size:1.3rem; line-height:1.4; margin-bottom:.7rem}
+    .introbody p{margin-bottom:.55rem; font-size:.94rem; line-height:1.55}
+    .introbody .two{margin-top:.8rem; gap:.3rem}
+    .introbody .two span{padding:.3rem .65rem; font-size:.82rem}
+    .introbody .safe{margin-top:.8rem; padding-top:.8rem; font-size:.8rem; line-height:1.5}
+  }
+  @media (max-height:680px){
+    .intro h2{font-size:1.18rem; margin-bottom:.5rem}
+    .introbody p{margin-bottom:.4rem; font-size:.89rem; line-height:1.45}
+    .introbody .two{margin-top:.55rem}
+    .introbody .safe{margin-top:.55rem; padding-top:.55rem; font-size:.76rem}
+  }
+  /* 아주 작은 기기 — 글자를 더 줄이면 읽기 힘들어진다.
+     대신 홈 화면에서 다시 나오는 칩 줄을 뺀다. */
+  @media (max-height:610px){
+    .introbody .two{display:none}
+  }
+
+  /* ── 의견 여쭙기 ── */
+  .askcard{border-color:var(--accent)}
+  .q{margin-top:var(--s3)}
+  .q:first-of-type{margin-top:var(--s2)}
+  .q .qt{font-weight:700; font-size:.98rem; margin:0 0 .15rem; line-height:1.5}
+  .q .qh{font-size:.82rem; color:var(--muted); margin:0 0 .45rem; line-height:1.5}
+  .q textarea{width:100%; font:inherit; font-size:1rem; padding:.7rem .8rem; min-height:4.5rem;
+    border:1px solid var(--line); border-radius:6px; background:var(--ground); color:var(--ink);
+    resize:vertical}
+  .q textarea:focus{border-color:var(--accent); outline:none}
+  .q.key .qt{color:var(--accent)}
+  .q.key textarea{border-color:var(--accent); background:var(--accent-soft)}
 
   /* ── 진행 ── */
   .prog{display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3)}
@@ -336,7 +386,7 @@
     <span class="chip" id="chip">준비 중</span>
   </header>
   <div style="font-size:.68rem;color:var(--muted);letter-spacing:.1em;margin:-.5rem 0 .8rem">
-    v9 · 2026-07-23
+    v10 · 2026-07-23
   </div>
 
   <main id="view" tabindex="-1"></main>
@@ -347,10 +397,11 @@
 <div class="mask" id="mask" role="dialog" aria-modal="true"><div class="dlg" id="dlg"></div></div>
 
 <!-- ?v= 는 캐시 때문에 옛 파일이 남는 것을 막는다. 고칠 때마다 숫자를 올린다. -->
-<script src="js/model.js?v=9"></script>
-<script src="js/store.js?v=9"></script>
-<script src="js/image.js?v=9"></script>
-<script src="js/ui.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
+<script src="js/model.js?v=10"></script>
+<script src="js/sample.js?v=10"></script>
+<script src="js/store.js?v=10"></script>
+<script src="js/image.js?v=10"></script>
+<script src="js/ui.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>

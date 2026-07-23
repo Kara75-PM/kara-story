@@ -29,10 +29,14 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
+  var APP_VERSION = 'v10';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+
+  /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
+  var SEEN_KEY = 'geurium.seenIntro.v1';
 
   /* 앱 전체 상태 */
   var S = {
-    screen: 'home',                         // home | queue | edit
+    screen: 'home',                         // intro | home | queue | edit | feedback
     queue: [],
     idx: 0,
     elders: [],
@@ -41,8 +45,17 @@
     /* 지운 것이 있으면 처음부터 펼쳐 둔다.
        접혀 있으면 되돌리는 길이 있는 줄도 모른다. */
     showTrash: true,
-    edit: null                              // {rec, elderId, note, imgUrl}
+    edit: null,                             // {rec, elderId, note, imgUrl}
+    askFeedback: false                      // 한 바퀴 돌고 나면 의견을 여쭙는다
   };
+
+  /* 시크릿 모드 등에서 localStorage 가 막혀도 앱은 계속 돌아야 한다 */
+  function remember(key, val) {
+    try { localStorage.setItem(key, val); } catch (e) { /* 무시 */ }
+  }
+  function recalled(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
 
   /* ── 시작 ─────────────────────────────────────── */
 
@@ -57,6 +70,9 @@
       .then(refreshData)
       .then(function () {
         UI.setChip('브라우저에 저장 중', 'ok');
+        /* 처음 오신 분에게는 여기가 뭘 하는 곳인지 먼저 알린다.
+           맥락 없이 화면부터 뜨면 무엇을 올려야 하는지 알 수 없다. */
+        if (!recalled(SEEN_KEY) && !S.todayRecords.length) S.screen = 'intro';
         render();
       })
       .catch(function (e) {
@@ -346,17 +362,175 @@
     S.queue = [];
     S.idx = 0;
     S.screen = 'home';
+    /* 한 바퀴 돌아본 직후가 의견을 여쭙기 가장 좋은 때다.
+       나중에 여쭈면 무엇이 어땠는지 이미 잊는다. */
+    S.askFeedback = true;
     refreshData().then(render);
+  }
+
+  /* ── 의견 여쭙기 ──────────────────────────────────
+   *
+   * 이 화면의 진짜 목적은 3번이다.
+   * 링크를 받는 분들은 우리 사용자가 아니다(30~40대, R-40).
+   * "쓰시겠어요?"를 물으면 예의상 답이 돌아올 뿐이다.
+   * 그분들이 줄 수 있는 가장 값어치 있는 것은 「아는 사람」이다.
+   * 센터 종사자 1명이 5일째 막혀 있다. */
+  var QUESTIONS = [
+    { id: 'what', label: '이게 뭘 하는 것 같으세요?',
+      hint: '한 문장이면 됩니다. 틀려도 괜찮습니다 — 그게 저희가 알고 싶은 겁니다.',
+      ph: '예) 센터에서 어르신 그림을 찍어 가족한테 보내주는 것' },
+    { id: 'stuck', label: '막히거나 어색했던 데가 있었나요?',
+      hint: '어디서 손이 멈췄는지, 뭐가 안 보였는지.',
+      ph: '예) 어르신 추가 버튼을 못 찾았어요' },
+    { id: 'intro', label: '주변에 요양·복지 쪽에서 일하시는 분 계신가요?', key: true,
+      hint: '주간보호센터·요양원·복지관 어디든 좋습니다. 15분만 여쭤보고 싶습니다. 없으시면 「없음」이라고만.',
+      ph: '예) 이모가 요양보호사예요 / 없음' }
+  ];
+
+  function renderFeedback() {
+    var c = UI.card();
+    c.appendChild(UI.el('p', 'eyebrow', '마지막 · 3가지'));
+    c.appendChild(UI.el('h2', null, '보신 김에 한마디만'));
+    c.appendChild(UI.el('p', 'lede',
+      '적으신 뒤 <b>아래 버튼</b>을 누르면 답이 복사됩니다. 보내주신 곳에 붙여넣어 주세요.'));
+
+    var boxes = {};
+    QUESTIONS.forEach(function (q) {
+      var w = UI.el('div', 'q' + (q.key ? ' key' : ''));
+      w.appendChild(UI.el('p', 'qt', (q.key ? '🙏 ' : '') + q.label));
+      w.appendChild(UI.el('p', 'qh', q.hint));
+      var t = document.createElement('textarea');
+      t.placeholder = q.ph;
+      t.value = recalled('geurium.fb.' + q.id) || '';
+      t.addEventListener('input', function () { remember('geurium.fb.' + q.id, t.value); });
+      w.appendChild(t);
+      boxes[q.id] = t;
+      c.appendChild(w);
+    });
+
+    UI.buttons([
+      { label: '← 돌아가기', ghost: true, fn: function () { S.screen = 'home'; render(); } },
+      { label: '답변 복사하기', fn: function () { copyAnswers(boxes); } }
+    ]);
+  }
+
+  function buildAnswerText(boxes) {
+    var lines = ['[그리움 앱 의견]'];
+    QUESTIONS.forEach(function (q, i) {
+      var v = (boxes[q.id].value || '').trim();
+      lines.push('');
+      lines.push((i + 1) + '. ' + q.label);
+      lines.push(v ? v : '(안 적음)');
+    });
+    lines.push('');
+    lines.push('— 화면 ' + window.innerWidth + '×' + window.innerHeight + ' · ' + APP_VERSION);
+    return lines.join('\n');
+  }
+
+  function copyAnswers(boxes) {
+    var empty = QUESTIONS.every(function (q) { return !(boxes[q.id].value || '').trim(); });
+    if (empty) { UI.say('한 칸이라도 적어주세요', { tone: 'warn' }); boxes.what.focus(); return; }
+
+    var text = buildAnswerText(boxes);
+    copyText(text).then(function (ok) {
+      if (ok) UI.say('복사됐습니다 — 붙여넣어 주세요', { tone: 'ok', ms: 6000 });
+      else showCopyFallback(text);
+    });
+  }
+
+  /* 복사 — 클립보드가 막힌 브라우저가 있어 두 가지 길을 둔다 */
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text)
+        .then(function () { return true; })
+        .catch(function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  /* 그래도 안 되면 직접 고르실 수 있게 펼쳐 드린다 */
+  function showCopyFallback(text) {
+    var old = document.getElementById('cpfb');
+    if (old) old.remove();
+
+    var c = UI.card();
+    c.id = 'cpfb';
+    c.appendChild(UI.el('p', 'eyebrow', '복사가 막혀 있습니다'));
+    c.appendChild(UI.el('p', 'lede', '아래 글을 <b>길게 눌러</b> 직접 복사해 주세요.'));
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.readOnly = true;
+    ta.style.cssText = 'width:100%;min-height:10rem;font:inherit;font-size:.9rem;' +
+      'padding:.6rem;border:1px solid var(--line);border-radius:6px;' +
+      'background:var(--ground);color:var(--ink)';
+    c.appendChild(ta);
+    ta.focus(); ta.select();
+    c.scrollIntoView({ block: 'nearest' });
   }
 
   /* ── 화면 ─────────────────────────────────────── */
 
   function render() {
     UI.clear();
-    if (S.screen === 'home')  return renderHome();
-    if (S.screen === 'queue') return renderQueue();
-    if (S.screen === 'edit')  return renderEdit();
+    if (S.screen === 'intro')    return renderIntro();
+    if (S.screen === 'home')     return renderHome();
+    if (S.screen === 'queue')    return renderQueue();
+    if (S.screen === 'edit')     return renderEdit();
+    if (S.screen === 'feedback') return renderFeedback();
     renderHome();
+  }
+
+  /* ── 견본 ─────────────────────────────────────────
+   * 링크로 처음 들어온 사람 폰에는 어르신 작품 사진이 없다.
+   * 올릴 게 없으면 아무것도 못 해보고 닫는다. */
+  function loadSample(btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '견본을 준비하는 중…'; }
+    Sample.files()
+      .then(acceptFiles)
+      .catch(function () {
+        UI.say('견본을 만들지 못했습니다', { tone: 'warn' });
+        render();
+      });
+  }
+
+  /* ── 처음 오신 분께 — 조작도 스크롤도 없는 한 화면 ── */
+  function renderIntro() {
+    var c = UI.card();
+    c.className += ' intro';
+    c.appendChild(UI.el('p', 'eyebrow', '주간보호센터'));
+    c.appendChild(UI.el('h2', null, '어르신이 만든 작품을,<br>가족에게 남깁니다'));
+
+    var b = UI.el('div', 'introbody');
+    b.innerHTML =
+      '<p>지금 보시는 건 <b>센터 직원이 쓰는 화면</b>입니다.<br>' +
+      '작품을 찍어 올리면 <b>가족이 링크로 봅니다.</b></p>' +
+      '<p class="two"><span>⏱ <b>2분</b>이면 됩니다</span>' +
+      '<span>🖼 <b>견본이 들어 있어</b> 사진 없어도 됩니다</span></p>' +
+      '<p class="safe">🔒 올리신 사진은 <b>이 기기 밖으로 나가지 않습니다.</b><br>' +
+      '서버도 계정도 없이, 브라우저 안에만 담깁니다.</p>';
+    c.appendChild(b);
+
+    UI.buttons([{
+      label: '해보기 →',
+      fn: function () {
+        remember(SEEN_KEY, '1');
+        S.screen = 'home';
+        render();
+      }
+    }]);
   }
 
   /* 어르신 고르는 줄 — 새로 올릴 때도, 고칠 때도 같은 모양이어야 한다 */
@@ -613,7 +787,32 @@
   }
 
   /* ── 홈 ── */
+  /* 의견을 여쭙는 칸. 한 바퀴 돌고 난 직후에는 맨 위로 올린다. */
+  function feedbackCard(highlight) {
+    var c = UI.card();
+    if (highlight) c.className += ' askcard';
+    c.appendChild(UI.el('p', 'eyebrow', highlight ? '해보셨네요 · 고맙습니다' : '의견'));
+    c.appendChild(UI.el('h2', null, highlight ? '어떠셨어요?' : '한마디 남겨주세요'));
+    c.appendChild(UI.el('p', 'lede',
+      '3가지만 여쭙습니다. <b>1분</b>이면 됩니다.<br>' +
+      '<b>세 번째가 저희에게 제일 절실합니다</b> — 요양·복지 쪽 아시는 분이 있는지.'));
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'way demo';
+    b.innerHTML = '<span class="ic">🗣</span><span>의견 남기기' +
+      '<span class="d">3가지 · 적으면 복사됩니다</span></span>';
+    b.addEventListener('click', function () {
+      S.askFeedback = false;
+      S.screen = 'feedback';
+      render();
+    });
+    c.appendChild(b);
+    return c;
+  }
+
   function renderHome() {
+    if (S.askFeedback) feedbackCard(true);
+
     var c = UI.card();
     c.appendChild(UI.el('p', 'eyebrow', Model.todayLocal().replace(/-/g, '. ')));
     c.appendChild(UI.el('h2', null, '오늘 걷은 작품을 남깁니다'));
@@ -670,6 +869,16 @@
     });
     wCam.appendChild(inCam);
     ways.appendChild(wCam);
+
+    /* 견본 — 사진이 없어도 끝까지 해볼 수 있게 한다.
+       이게 없으면 링크를 받은 사람은 첫 화면에서 막힌다. */
+    var wDemo = document.createElement('button');
+    wDemo.type = 'button';
+    wDemo.className = 'way demo';
+    wDemo.innerHTML = '<span class="ic">✨</span><span>견본으로 해보기' +
+      '<span class="d">사진이 없어도 됩니다 · ' + Sample.count + '장이 들어옵니다</span></span>';
+    wDemo.addEventListener('click', function () { loadSample(wDemo); });
+    ways.appendChild(wDemo);
 
     c.appendChild(ways);
     drop.addEventListener('click', function () { inPick.click(); });
@@ -733,6 +942,10 @@
         '지금은 <b>이 브라우저 안에만</b> 저장됩니다. ' +
         '다른 기기나 가족에게는 아직 보이지 않습니다.'));
     });
+
+    /* 아직 의견을 안 주신 분께는 맨 아래에도 길을 둔다.
+       위쪽 카드는 한 바퀴 돈 직후에만 뜬다. */
+    if (!S.askFeedback) feedbackCard(false);
 
     UI.buttons([]);
   }
