@@ -12,12 +12,16 @@
   var foot   = null;
   var chip   = null;
   var notice = null;
+  var mask   = null;
+  var dlg    = null;
 
   function init() {
     view   = document.getElementById('view');
     foot   = document.getElementById('foot');
     chip   = document.getElementById('chip');
     notice = document.getElementById('notice');
+    mask   = document.getElementById('mask');
+    dlg    = document.getElementById('dlg');
   }
 
   function el(tag, cls, html) {
@@ -122,6 +126,60 @@
     clearTimeout(say._t);
   }
 
+  /* ── 확인창 ──
+   *
+   * 브라우저 기본 confirm 을 쓰지 않는 이유:
+   *   1) 버튼 위치를 바꿀 수 없다 — 같은 자리를 두 번 연타하면 위험한 일이 그냥 일어난다
+   *   2) 위험한 것과 아닌 것을 구분해 보여줄 수 없다
+   *
+   * ask({title, body, warn, okLabel, cancelLabel, danger, swap}) → Promise<boolean>
+   *   danger : 확인 버튼을 빨갛게
+   *   swap   : 확인/취소 위치를 바꾼다 (연타 방지용, 마지막 확인에 쓴다)
+   */
+  function ask(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      dlg.innerHTML = '';
+      if (opts.warn) dlg.appendChild(el('div', 'warnline', esc(opts.warn)));
+      dlg.appendChild(el('h3', null, esc(opts.title || '확인')));
+      if (opts.body) dlg.appendChild(el('div', 'bd', opts.body));
+
+      var acts = el('div', 'acts');
+
+      var cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.textContent = opts.cancelLabel || '취소';
+
+      var ok = document.createElement('button');
+      ok.type = 'button';
+      ok.className = opts.danger ? 'danger' : 'go';
+      ok.textContent = opts.okLabel || '확인';
+
+      /* swap 이면 확인이 왼쪽, 취소가 오른쪽 */
+      if (opts.swap) { acts.appendChild(ok); acts.appendChild(cancel); }
+      else           { acts.appendChild(cancel); acts.appendChild(ok); }
+      dlg.appendChild(acts);
+
+      function close(v) {
+        mask.classList.remove('on');
+        document.removeEventListener('keydown', onKey);
+        mask.removeEventListener('click', onBackdrop);
+        setTimeout(function () { resolve(v); }, 60);
+      }
+      function onKey(e) { if (e.key === 'Escape') close(false); }
+      function onBackdrop(e) { if (e.target === mask) close(false); }
+
+      cancel.addEventListener('click', function () { close(false); });
+      ok.addEventListener('click', function () { close(true); });
+      document.addEventListener('keydown', onKey);
+      mask.addEventListener('click', onBackdrop);
+
+      mask.classList.add('on');
+      /* 연타로 확인이 눌리지 않게, 열리자마자 취소에 초점을 둔다 */
+      requestAnimationFrame(function () { cancel.focus(); });
+    });
+  }
+
   /* 진행 막대 — "3장 중 1번째" */
   function progress(host, done, total) {
     var p = el('div', 'prog');
@@ -189,6 +247,7 @@
     pickButton: pickButton,
     say: say,
     hideNotice: hide,
+    ask: ask,
     progress: progress,
     queueStrip: queueStrip,
     syncFootPad: syncFootPad,

@@ -37,7 +37,9 @@
     elders: [],
     todayRecords: [],
     deletedRecords: [],
-    showTrash: false,                       // 🗑 지운 것 펼침 여부
+    /* 지운 것이 있으면 처음부터 펼쳐 둔다.
+       접혀 있으면 되돌리는 길이 있는 줄도 모른다. */
+    showTrash: true,
     edit: null                              // {rec, elderId, note, imgUrl}
   };
 
@@ -399,17 +401,20 @@
     var e = S.edit;
     if (!e) { S.screen = 'home'; renderHome(); return; }
 
-    var bar = UI.el('div', 'qbar');
-    var back = document.createElement('button');
-    back.type = 'button'; back.className = 'tbtn';
-    back.textContent = '✕ 닫기';
-    back.addEventListener('click', closeEdit);
-    bar.appendChild(back);
-    UI.view.appendChild(bar);
-
     var c = UI.card();
     c.appendChild(UI.el('p', 'eyebrow', Model.periodLabel(e.rec)));
     c.appendChild(UI.el('h2', null, '기록 고치기'));
+
+    /* 사진 바로 위에 「지우기」 — 하단 닫기와 겹치지 않게 여기 둔다 */
+    var sbar = UI.el('div', 'shotbar');
+    sbar.appendChild(UI.el('div', 'cnt', UI.esc(elderName(e.rec.elderId) || '')));
+    sbar.appendChild(UI.el('div', 'sp'));
+    var rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'tbtn danger';
+    rm.textContent = '🗑 이 기록 지우기';
+    rm.addEventListener('click', function () { confirmDelete(e.rec, true); });
+    sbar.appendChild(rm);
+    c.appendChild(sbar);
 
     if (e.imgUrl) {
       var stage = UI.el('div', 'stage2');
@@ -439,12 +444,6 @@
     sec2.appendChild(UI.el('div', 'lbl', '오늘 어떠셨나요? <span style="font-weight:400">(안 쓰셔도 됩니다)</span>'));
     noteInput(sec2, e.note, function (v) { e.note = v; });
     c.appendChild(sec2);
-
-    var rm = document.createElement('button');
-    rm.type = 'button'; rm.className = 'tbtn'; rm.style.marginTop = 'var(--s3)';
-    rm.textContent = '🗑 이 기록 지우기';
-    rm.addEventListener('click', function () { confirmDelete(e.rec, true); });
-    c.appendChild(rm);
 
     UI.buttons([
       { label: '닫기', fn: closeEdit, ghost: true },
@@ -592,7 +591,7 @@
 
     if (!S.showTrash) {
       c.appendChild(UI.el('div', 'note',
-        '되돌리거나 완전히 지우려면 눌러서 펼치세요.'));
+        '위를 눌러 펼치면 <b>되돌리기</b>와 <b>완전히 지우기</b>를 할 수 있습니다.'));
       return;
     }
 
@@ -699,18 +698,22 @@
    * 되돌리기는 사라지면 안 되기 때문이다. 🗑 목록이 그 자리다.
    */
   function confirmDelete(rec, fromEdit) {
-    var who = elderName(rec.elderId);
-    if (!confirm(who + ' 어르신 기록을 지울까요?\n\n' +
-                 '지운 것 목록으로 옮겨집니다. 언제든 되돌릴 수 있습니다.')) return;
-
-    Store.removeRecord(rec.id)
-      .then(refreshData)
-      .then(function () {
-        if (fromEdit) closeEdit(); else render();
-        S.showTrash = true;
-        render();
-        UI.say('지웠습니다 · 아래 「지운 것」에서 되돌릴 수 있습니다', { tone: 'warn' });
-      });
+    var who = UI.esc(elderName(rec.elderId));
+    UI.ask({
+      title: who + ' 어르신 기록을 지울까요?',
+      body: '<b>🗑 지운 것</b>으로 옮겨집니다.<br>언제든 되돌릴 수 있습니다.',
+      okLabel: '지우기',
+      cancelLabel: '그대로 두기'
+    }).then(function (ok) {
+      if (!ok) return;
+      return Store.removeRecord(rec.id)
+        .then(refreshData)
+        .then(function () {
+          S.showTrash = true;
+          if (fromEdit) closeEdit(); else render();
+          UI.say('지웠습니다 · 아래 「지운 것」에서 되돌릴 수 있습니다', { tone: 'warn' });
+        });
+    });
   }
 
   function restoreRecord(rec) {
@@ -722,18 +725,40 @@
       });
   }
 
+  /* 완전히 지우기 — 두 번 묻는다.
+     두 번째는 버튼 위치를 바꾼다. 같은 자리를 연타해도 「취소」가 눌리도록. */
   function confirmPurge(rec) {
-    var who = elderName(rec.elderId);
-    if (!confirm('⚠️ ' + who + ' 어르신 기록을 완전히 지울까요?\n\n' +
-                 '사진까지 함께 사라집니다.\n되돌릴 수 없습니다.')) return;
-    if (!confirm('정말 지울까요?\n\n마지막 확인입니다.')) return;
-
-    Store.purgeRecord(rec.id)
-      .then(refreshData)
-      .then(function () {
-        render();
-        UI.say('완전히 지웠습니다', { tone: 'warn' });
+    var who = UI.esc(elderName(rec.elderId));
+    UI.ask({
+      warn: '되돌릴 수 없습니다',
+      title: who + ' 어르신 기록을 완전히 지울까요?',
+      body: '<b>사진까지 함께 사라집니다.</b><br>' +
+            '어르신이나 가족이 빼달라고 하신 경우가 여기에 해당합니다.',
+      okLabel: '완전히 지우기',
+      cancelLabel: '취소',
+      danger: true
+    }).then(function (ok1) {
+      if (!ok1) return;
+      return UI.ask({
+        warn: '마지막 확인입니다',
+        title: '정말 지울까요?',
+        body: '<b>' + who + '</b> 어르신의 이 사진은 <b>복구할 수 없습니다.</b><br>' +
+              '<span style="font-size:.84rem;color:var(--muted)">' +
+              '실수를 막기 위해 버튼 자리를 바꿔 두었습니다.</span>',
+        okLabel: '네, 완전히 지웁니다',
+        cancelLabel: '아니요',
+        danger: true,
+        swap: true                      /* 🔑 확인이 왼쪽 — 연타 방지 */
       });
+    }).then(function (ok2) {
+      if (!ok2) return;
+      return Store.purgeRecord(rec.id)
+        .then(refreshData)
+        .then(function () {
+          render();
+          UI.say('완전히 지웠습니다', { tone: 'warn' });
+        });
+    });
   }
 
   /* 지운 지 며칠 됐는지 */
@@ -754,8 +779,15 @@
     out.className = 'tbtn';
     out.textContent = '✕ 나가기';
     out.addEventListener('click', function () {
-      if (S.queue.length > 1 && !confirm('고른 사진 ' + S.queue.length + '장을 모두 버리고 나갈까요?')) return;
-      finishQueue();
+      var left = S.queue.filter(function (q) { return !q.saved; }).length;
+      if (!left) { finishQueue(); return; }
+      UI.ask({
+        title: '나갈까요?',
+        body: '아직 저장하지 않은 사진 <b>' + left + '장</b>이 있습니다.<br>나가면 사라집니다.',
+        okLabel: '나가기',
+        cancelLabel: '계속하기',
+        danger: true
+      }).then(function (ok) { if (ok) finishQueue(); });
     });
     bar.appendChild(out);
     bar.appendChild(UI.el('div', 'sp'));
@@ -785,6 +817,17 @@
       UI.empty(c, '사진을 읽고 있습니다…');
 
     } else {
+      /* 사진 바로 위에 「빼기」를 둔다 — 맨 아래에 있으면 못 찾는다 */
+      var sbar = UI.el('div', 'shotbar');
+      sbar.appendChild(UI.el('div', 'cnt', (S.idx + 1) + ' / ' + S.queue.length));
+      sbar.appendChild(UI.el('div', 'sp'));
+      var rmTop = document.createElement('button');
+      rmTop.type = 'button'; rmTop.className = 'tbtn danger';
+      rmTop.textContent = '🗑 이 사진 빼기';
+      rmTop.addEventListener('click', skipCurrent);
+      sbar.appendChild(rmTop);
+      c.appendChild(sbar);
+
       /* ── 사진 + 자를 자리 ──
          틀 높이를 고정하고 그 안에서만 사진이 바뀌게 한다 */
       var stage = UI.el('div', 'stage2');
@@ -852,12 +895,6 @@
       noteInput(sec2, item.note, function (v) { item.note = v; });
       c.appendChild(sec2);
 
-      /* 이 사진 빼기 */
-      var rm = document.createElement('button');
-      rm.type = 'button'; rm.className = 'tbtn'; rm.style.marginTop = 'var(--s3)';
-      rm.textContent = '🗑 이 사진 빼기';
-      rm.addEventListener('click', skipCurrent);
-      c.appendChild(rm);
     }
 
     UI.queueStrip(c, S.queue, S.idx, goTo);
