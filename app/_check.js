@@ -22,17 +22,52 @@ const files = {
   app:   read('js/app.js')
 };
 
+/* Store 는 목록을 글자로 적어두지 않고 METHODS 배열을 돌며 만든다.
+   (기기 안 / 서버 두 저장소를 갈아끼우기 위해서다)
+   그래서 배열과 직접 붙인 이름을 합쳐서 읽는다. */
+function storeExports(src) {
+  const arr = src.match(/var METHODS\s*=\s*\[([\s\S]*?)\];/);
+  if (!arr) return null;
+  const names = new Set();
+  arr[1].replace(/'(\w+)'/g, (_, k) => { names.add(k); return _; });
+  src.replace(/var Store\s*=\s*\{([\s\S]*?)\};/, (_, body) => {
+    body.replace(/(\w+)\s*:/g, (__, k) => { names.add(k); return __; });
+    return _;
+  });
+  return names.size ? names : null;
+}
+
 const api = {
   Model: exportsOf(files.model, 'Model'),
-  Store: exportsOf(files.store, 'Store'),
+  Store: storeExports(files.store),
   Img:   exportsOf(files.image, 'Img'),
   UI:    exportsOf(files.ui, 'UI')
+};
+
+/* 두 저장소가 계약을 똑같이 지키는지 — 이게 어긋나면 갈아끼울 때 터진다 */
+function implExports(file, globalName) {
+  try { return exportsOf(read(file), globalName); } catch (e) { return null; }
+}
+const impls = {
+  StoreIdb:  implExports('js/store-idb.js',  'StoreIdb'),
+  StoreSupa: implExports('js/store-supa.js', 'StoreSupa')
 };
 
 let bad = 0;
 for (const [ns, names] of Object.entries(api)) {
   if (!names) { console.log('✗ ' + ns + ' 내보내기 목록을 찾지 못함'); bad++; continue; }
   console.log('· ' + ns + ' 제공: ' + [...names].sort().join(', '));
+}
+/* 저장소 구현이 계약을 다 지키는지 */
+for (const [name, names] of Object.entries(impls)) {
+  if (!names) { console.log('· ' + name + ' 아직 없음 (건너뜀)'); continue; }
+  const missing = [...api.Store].filter(m => m !== 'use' && m !== 'backend' && !names.has(m));
+  if (missing.length) {
+    console.log('✗ ' + name + ' 에 빠진 계약: ' + missing.join(', '));
+    bad++;
+  } else {
+    console.log('· ' + name + ' 계약 이행 ✓');
+  }
 }
 console.log('');
 
