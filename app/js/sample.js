@@ -103,7 +103,9 @@
   function nameBand(ctx, w, h, where, name) {
     var top = (where === 'top') ? 0 : h - BAND;
     ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    /* 거의 불투명하게 덮는다 — 이름칸은 「잘라낼 자리」라 깨끗해야
+       그림과 구분되고, 자르기 전후가 눈에 확 들어온다. */
+    ctx.fillStyle = 'rgba(253,250,244,.94)';
     ctx.fillRect(0, top, w, BAND);
     ctx.strokeStyle = '#c9bfa8';
     ctx.lineWidth = 3;
@@ -213,7 +215,11 @@
     nameBand(ctx, W, H, 'top', '박영수');
   }
 
-  /* ③ 옆으로 누운 그림 — 「돌리기」를 보여주기 위해 일부러 90도 눕혔다 */
+  /* ③ 옆으로 누운 그림 — 「돌리기」를 보여주기 위해 일부러 90도 눕혔다.
+   *
+   * ⚠️ 눕힌 그림은 「빈 화면」처럼 보이기 쉽다.
+   *    그러면 "일부러 눕힌 사진"이 아니라 "잘못 만들어진 그림"으로 읽힌다.
+   *    그래서 하늘과 땅으로 화면을 꽉 채우고, 집을 크게 그린다. */
   function drawSidewaysHouse(ctx) {
     /* 가로로 그린 뒤 전체를 90도 돌려 세로 캔버스에 넣는다 */
     ctx.save();
@@ -221,29 +227,88 @@
     ctx.rotate(Math.PI / 2);
     /* 이 안에서는 가로 H x 세로 W 로 생각한다 */
     var w = H, h = W;
+    var GY = h * 0.66;                    /* 땅선 */
 
     paper(ctx, w, h, 29);
 
-    /* 잔디 */
-    fillSoft(ctx, '#a8c98a', 0.7, function (c) { c.rect(0, h * 0.72, w, h * 0.28 - BAND * 0.0); });
+    /* 하늘과 땅 — 빈 데 없이 채운다 */
+    fillSoft(ctx, '#cfe7f2', 0.75, function (c) { c.rect(0, 0, w, GY); });
+    fillSoft(ctx, '#a9cc86', 0.8, function (c) { c.rect(0, GY, w, h - GY); });
+    crayon(ctx, '#7fa35e', 10, function (c) { c.moveTo(0, GY); c.lineTo(w, GY); });
 
-    /* 집 */
-    var hx = w * 0.44, hy = h * 0.44, hw = w * 0.3, hh = h * 0.3;
-    fillSoft(ctx, '#f0d9a8', 0.9, function (c) { c.rect(hx - hw / 2, hy, hw, hh); });
-    crayon(ctx, '#a8814a', 10, function (c) { c.rect(hx - hw / 2, hy, hw, hh); });
-    fillSoft(ctx, '#c96b52', 0.9, function (c) {
-      c.moveTo(hx - hw * 0.62, hy); c.lineTo(hx, hy - hh * 0.5); c.lineTo(hx + hw * 0.62, hy); c.closePath();
+    /* 해 */
+    fillSoft(ctx, '#f6c445', 0.9, function (c) { c.arc(w * 0.87, h * 0.16, 66, 0, 6.284); });
+    crayon(ctx, '#e0a520', 8, function (c) {
+      for (var i = 0; i < 8; i++) {
+        var a = i * 0.785;
+        c.moveTo(w * 0.87 + Math.cos(a) * 82, h * 0.16 + Math.sin(a) * 82);
+        c.lineTo(w * 0.87 + Math.cos(a) * 112, h * 0.16 + Math.sin(a) * 112);
+      }
     });
-    /* 문·창 */
-    fillSoft(ctx, '#8a5a3c', 0.9, function (c) { c.rect(hx - hw * 0.1, hy + hh * 0.45, hw * 0.2, hh * 0.55); });
-    fillSoft(ctx, '#9fd0e6', 0.9, function (c) { c.rect(hx - hw * 0.38, hy + hh * 0.16, hw * 0.2, hw * 0.2); });
-    crayon(ctx, '#6a8ea3', 6, function (c) { c.rect(hx - hw * 0.38, hy + hh * 0.16, hw * 0.2, hw * 0.2); });
 
-    /* 해와 구름 */
-    fillSoft(ctx, '#f6c445', 0.85, function (c) { c.arc(w * 0.82, h * 0.2, 62, 0, 6.284); });
-    fillSoft(ctx, '#ffffff', 0.85, function (c) {
-      c.arc(w * 0.2, h * 0.2, 46, 0, 6.284); c.arc(w * 0.26, h * 0.2, 58, 0, 6.284);
-      c.arc(w * 0.33, h * 0.21, 42, 0, 6.284);
+    /* 구름 */
+    [[0.16, 0.15, 1], [0.42, 0.1, 0.7]].forEach(function (p) {
+      fillSoft(ctx, '#ffffff', 0.9, function (c) {
+        c.arc(w * p[0], h * p[1], 40 * p[2], 0, 6.284);
+        c.arc(w * p[0] + 46 * p[2], h * p[1] + 6, 54 * p[2], 0, 6.284);
+        c.arc(w * p[0] + 100 * p[2], h * p[1], 38 * p[2], 0, 6.284);
+      });
+    });
+
+    /* 집 — 크게, 가운데 */
+    var hw = w * 0.34, hh = h * 0.36;
+    var hx = w * 0.46, hy = GY - hh;
+    fillSoft(ctx, '#f3dcaa', 0.95, function (c) { c.rect(hx - hw / 2, hy, hw, hh); });
+    crayon(ctx, '#a8814a', 11, function (c) { c.rect(hx - hw / 2, hy, hw, hh); });
+    /* 지붕 */
+    fillSoft(ctx, '#cc6a50', 0.95, function (c) {
+      c.moveTo(hx - hw * 0.66, hy); c.lineTo(hx, hy - hh * 0.52); c.lineTo(hx + hw * 0.66, hy); c.closePath();
+    });
+    crayon(ctx, '#9c4a36', 10, function (c) {
+      c.moveTo(hx - hw * 0.66, hy); c.lineTo(hx, hy - hh * 0.52); c.lineTo(hx + hw * 0.66, hy); c.closePath();
+    });
+    /* 굴뚝과 연기 */
+    fillSoft(ctx, '#b0645a', 0.95, function (c) { c.rect(hx + hw * 0.3, hy - hh * 0.42, hw * 0.11, hh * 0.3); });
+    /* 문 */
+    var dw = hw * 0.22;
+    fillSoft(ctx, '#96603c', 0.95, function (c) { c.rect(hx - dw / 2, hy + hh * 0.42, dw, hh * 0.58); });
+    crayon(ctx, '#6d4326', 7, function (c) { c.rect(hx - dw / 2, hy + hh * 0.42, dw, hh * 0.58); });
+    /* 창문 둘 */
+    [-1, 1].forEach(function (s) {
+      var ww = hw * 0.2, wx = hx + s * hw * 0.29 - ww / 2, wy = hy + hh * 0.16;
+      fillSoft(ctx, '#a9d6ea', 0.95, function (c) { c.rect(wx, wy, ww, ww); });
+      crayon(ctx, '#5f8ba2', 6, function (c) {
+        c.rect(wx, wy, ww, ww);
+        c.moveTo(wx + ww / 2, wy); c.lineTo(wx + ww / 2, wy + ww);
+        c.moveTo(wx, wy + ww / 2); c.lineTo(wx + ww, wy + ww / 2);
+      });
+    });
+
+    /* 나무 */
+    crayon(ctx, '#7a5230', 20, function (c) {
+      c.moveTo(w * 0.12, GY); c.lineTo(w * 0.12, GY - h * 0.16);
+    });
+    fillSoft(ctx, '#6da35c', 0.9, function (c) { c.arc(w * 0.12, GY - h * 0.25, 92, 0, 6.284); });
+    crayon(ctx, '#3f6247', 8, function (c) { c.arc(w * 0.12, GY - h * 0.25, 92, 0, 6.284); });
+
+    /* 길 */
+    fillSoft(ctx, '#e6d8b4', 0.9, function (c) {
+      c.moveTo(hx - dw * 0.8, GY); c.lineTo(hx + dw * 0.8, GY);
+      c.lineTo(hx + dw * 2.4, h - BAND); c.lineTo(hx - dw * 2.4, h - BAND); c.closePath();
+    });
+
+    /* 꽃 몇 송이 */
+    [[0.24, 0.79], [0.31, 0.86], [0.78, 0.8], [0.86, 0.87]].forEach(function (p, i) {
+      var fx = w * p[0], fy = h * p[1];
+      crayon(ctx, '#5f8f4e', 6, function (c) { c.moveTo(fx, fy); c.lineTo(fx, fy - 34); });
+      fillSoft(ctx, i % 2 ? '#ef8f7d' : '#f0b34c', 0.95, function (c) {
+        for (var k = 0; k < 5; k++) {
+          var a = k * 1.2566;
+          c.moveTo(fx + Math.cos(a) * 20, fy - 34 + Math.sin(a) * 20);
+          c.arc(fx + Math.cos(a) * 20, fy - 34 + Math.sin(a) * 20, 13, 0, 6.284);
+        }
+      });
+      fillSoft(ctx, '#d9803a', 1, function (c) { c.arc(fx, fy - 34, 11, 0, 6.284); });
     });
 
     nameBand(ctx, w, h, 'bottom', '이말순');
