@@ -47,24 +47,40 @@
     });
   }
 
-  /* ── 캔버스에 그려서 크기 줄이기 ──────────────────── */
-
-  function drawScaled(loaded, longEdge, cropBottomRatio) {
+  /* ── 캔버스에 그려서: 돌리고 → 아래를 자르고 → 크기 줄이기 ──
+   *
+   * 순서가 중요하다. 먼저 돌린 다음에 잘라야
+   * "보이는 화면의 아래쪽"이 잘린다.
+   */
+  function drawScaled(loaded, longEdge, cropBottomRatio, rot) {
+    rot = ((rot || 0) % 360 + 360) % 360;
     var sw = loaded.w, sh = loaded.h;
 
-    /* 아래쪽 잘라내기 (이름칸 제거) */
-    var ratio = cropBottomRatio || 0;
-    var srcH = Math.max(1, Math.round(sh * (1 - ratio)));
+    /* 돌린 뒤의 크기 */
+    var quarter = (rot === 90 || rot === 270);
+    var rw = quarter ? sh : sw;
+    var rh = quarter ? sw : sh;
 
-    var scale = Math.min(1, longEdge / Math.max(sw, srcH));
-    var dw = Math.max(1, Math.round(sw * scale));
-    var dh = Math.max(1, Math.round(srcH * scale));
+    /* 아래쪽 잘라내기 (이름칸 제거) — 돌린 뒤 기준 */
+    var ratio = Math.min(0.6, Math.max(0, cropBottomRatio || 0));
+    var keepH = Math.max(1, Math.round(rh * (1 - ratio)));
+
+    var scale = Math.min(1, longEdge / Math.max(rw, keepH));
+    var dw = Math.max(1, Math.round(rw * scale));
+    var dh = Math.max(1, Math.round(keepH * scale));
 
     var cv = document.createElement('canvas');
     cv.width = dw; cv.height = dh;
     var ctx = cv.getContext('2d');
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(loaded.src, 0, 0, sw, srcH, 0, 0, dw, dh);
+
+    ctx.save();
+    ctx.scale(scale, scale);
+    if (rot === 90)       { ctx.translate(rw, 0);  ctx.rotate(Math.PI / 2); }
+    else if (rot === 180) { ctx.translate(rw, rh); ctx.rotate(Math.PI); }
+    else if (rot === 270) { ctx.translate(0, rh);  ctx.rotate(-Math.PI / 2); }
+    ctx.drawImage(loaded.src, 0, 0);
+    ctx.restore();
     return cv;
   }
 
@@ -95,9 +111,9 @@
     });
   }
 
-  /* 미리보기 URL 만들기 — 크롭 비율을 반영해서 */
-  function previewUrl(prepared, cropBottomRatio) {
-    var cv = drawScaled(prepared.loaded, 900, cropBottomRatio);
+  /* 미리보기 URL — 자를 자리는 화면에서 겹쳐 보여주므로 여기선 자르지 않는다 */
+  function previewUrl(prepared, cropBottomRatio, rot) {
+    var cv = drawScaled(prepared.loaded, 900, cropBottomRatio, rot);
     return cv.toDataURL('image/jpeg', 0.8);
   }
 
@@ -113,9 +129,9 @@
   }
 
   /* 최종 저장본 + 썸네일 */
-  function finalize(prepared, cropBottomRatio) {
-    var main  = drawScaled(prepared.loaded, MAX_LONG_EDGE, cropBottomRatio);
-    var thumb = drawScaled(prepared.loaded, THUMB_EDGE,    cropBottomRatio);
+  function finalize(prepared, cropBottomRatio, rot) {
+    var main  = drawScaled(prepared.loaded, MAX_LONG_EDGE, cropBottomRatio, rot);
+    var thumb = drawScaled(prepared.loaded, THUMB_EDGE,    cropBottomRatio, rot);
     return Promise.all([canvasToBlob(main), canvasToBlob(thumb, 0.8)])
       .then(function (bs) {
         return {

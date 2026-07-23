@@ -133,6 +133,58 @@
     text-shadow:0 0 3px rgba(0,0,0,.8)}
   .queuehint{font-size:.76rem; color:var(--muted); margin-top:-.2rem}
 
+  /* ── 자를 자리 미리보기 ── */
+  .cropbox{position:relative; border-radius:6px; overflow:hidden; background:var(--surface-2)}
+  .cropbox img{width:100%; display:block}
+  .cropbox .cut{position:absolute; left:0; right:0; bottom:0;
+    background:repeating-linear-gradient(45deg, rgba(140,58,46,.30) 0 8px, rgba(140,58,46,.16) 8px 16px);
+    border-top:2px dashed #fff; pointer-events:none;
+    display:flex; align-items:center; justify-content:center}
+  .cropbox .cut span{font-size:.78rem; font-weight:700; color:#fff;
+    text-shadow:0 1px 3px rgba(0,0,0,.7); padding:.2rem .5rem}
+  .cropctl{display:flex; align-items:center; gap:.6rem; margin-top:.7rem}
+  .cropctl input[type=range]{flex:1; accent-color:var(--accent)}
+  .cropctl .v{font-size:.8rem; font-weight:700; color:var(--muted);
+    font-variant-numeric:tabular-nums; min-width:3.2rem; text-align:right}
+  .rotbtn{font:inherit; font-size:.85rem; font-weight:700; cursor:pointer;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink-2);
+    border-radius:6px; padding:.5rem .8rem; transition:.12s; white-space:nowrap}
+  .rotbtn:hover{border-color:var(--accent); color:var(--accent)}
+
+  /* ── 어르신 고르기 · 메모 ── */
+  .sect{margin-top:var(--s3); padding-top:var(--s3); border-top:1px solid var(--line)}
+  .sect > .lbl{font-size:.8rem; font-weight:700; letter-spacing:.06em; color:var(--muted);
+    margin-bottom:.5rem}
+  .sect > .lbl .req{color:var(--alert)}
+  .names{display:flex; flex-wrap:wrap; gap:.4rem}
+  .names button{font:inherit; font-size:1rem; cursor:pointer; padding:.55rem .95rem;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink);
+    border-radius:999px; transition:.12s}
+  .names button:hover{border-color:var(--accent)}
+  .names button.sel{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700}
+  .names button.add{border-style:dashed; color:var(--muted)}
+  .memo{width:100%; font:inherit; font-size:1rem; padding:.7rem .8rem; margin-top:.3rem;
+    border:1px solid var(--line); border-radius:6px; background:var(--ground); color:var(--ink)}
+  .memo:focus{border-color:var(--accent); outline:none}
+  .quick{display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.45rem}
+  .quick button{font:inherit; font-size:.82rem; cursor:pointer; padding:.35rem .7rem;
+    border:1px solid var(--line); background:var(--surface-2); color:var(--ink-2);
+    border-radius:999px; transition:.12s}
+  .quick button:hover{border-color:var(--accent); color:var(--accent)}
+
+  /* ── 오늘 남긴 것 ── */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(105px,1fr)); gap:.55rem}
+  .item{background:var(--surface); border:1px solid var(--line); border-radius:6px;
+    overflow:hidden; text-align:left; padding:0; font:inherit; cursor:pointer; transition:.12s}
+  .item:hover{border-color:var(--accent)}
+  .item img{width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--surface-2)}
+  .item .cap{padding:.4rem .5rem}
+  .item .nm{font-size:.85rem; font-weight:700}
+  .item .mm{font-size:.74rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .stat{display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:var(--s2)}
+  .stat span{font-size:.76rem; color:var(--muted); background:var(--surface-2);
+    border-radius:999px; padding:.25rem .6rem; font-variant-numeric:tabular-nums}
+
   /* ── 버튼 ── */
   .foot{position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--surface);
     border-top:1px solid var(--line); box-shadow:0 -4px 16px rgba(0,0,0,.06);
@@ -175,7 +227,7 @@
     <span class="chip" id="chip">준비 중</span>
   </header>
   <div style="font-size:.68rem;color:var(--muted);letter-spacing:.1em;margin:-.5rem 0 .8rem">
-    v3 · 2026-07-23
+    v4 · 2026-07-23
   </div>
 
   <main id="view" tabindex="-1"></main>
@@ -185,10 +237,10 @@
 <div class="toast" id="toast"></div>
 
 <!-- ?v= 는 캐시 때문에 옛 파일이 남는 것을 막는다. 고칠 때마다 숫자를 올린다. -->
-<script src="js/model.js?v=3"></script>
-<script src="js/store.js?v=3"></script>
-<script src="js/image.js?v=3"></script>
-<script src="js/ui.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
+<script src="js/model.js?v=4"></script>
+<script src="js/store.js?v=4"></script>
+<script src="js/image.js?v=4"></script>
+<script src="js/ui.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
 </body>
 </html>
