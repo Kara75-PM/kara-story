@@ -15,7 +15,8 @@
 
   var MAX_FILES = 30;                       // 한 번에 받을 수 있는 장수
   var OK_TYPES = /^image\/(jpeg|png|webp|heic|heif)$/i;
-  var DEFAULT_CROP = 0.15;                  // 아래 15% 를 이름칸으로 본다
+  var DEFAULT_CROP_BOTTOM = 0.15;           // 아래 15% 를 이름칸으로 본다
+  var DEFAULT_CROP_TOP = 0;
 
   /* 한 줄 메모를 빨리 넣도록 — 직원이 쓸 말을 미리 준비해 둔다.
      빈칸에 알아서 쓰라고 하면 아무도 안 쓴다. */
@@ -114,7 +115,9 @@
         prepared: null,     // 큰 그림 (지금 보고 있는 장만)
         viewUrl: null,      // 큰 미리보기
         stripUrl: null,     // 목록 줄에 쓸 작은 그림 (전부 미리 만든다)
-        elderId: null, note: '', cropRatio: DEFAULT_CROP, rot: 0,
+        elderId: null, note: '', rot: 0,
+        cropTop: DEFAULT_CROP_TOP,
+        cropBottom: DEFAULT_CROP_BOTTOM,
         saved: false, saving: false, error: null
       };
     });
@@ -224,10 +227,11 @@
     prepareCurrent();
   }
 
-  /* 돌린 각도를 반영해 큰 미리보기를 다시 만든다 (자르기는 화면에서 겹쳐 보여준다) */
+  /* 돌린 각도를 반영해 큰 미리보기를 다시 만든다.
+     자르기는 반영하지 않는다 — 화면에서 빗금으로 겹쳐 보여주기 때문이다. */
   function refreshView(item) {
     if (!item || !item.prepared) return;
-    item.viewUrl = Img.previewUrl(item.prepared, 0, item.rot);
+    item.viewUrl = Img.previewUrl(item.prepared, null, item.rot);
   }
 
   /* dir: -1 왼쪽, +1 오른쪽 */
@@ -278,16 +282,18 @@
     render();
     UI.setChip('저장 중…');
 
+    var crop = { top: item.cropTop, bottom: item.cropBottom };
     var rec = Model.makeRecord({
       elderId: item.elderId,
       kind: Model.Kind.ARTWORK,
       occurredAt: Model.todayLocal(),
       note: item.note,
-      redacted: item.cropRatio > 0,
-      redactRatio: item.cropRatio
+      redacted: (crop.top + crop.bottom) > 0,
+      redactTop: crop.top,
+      redactBottom: crop.bottom
     });
 
-    Img.finalize(item.prepared, item.cropRatio, item.rot)
+    Img.finalize(item.prepared, crop, item.rot)
       .then(function (out) {
         rec.width = out.width;
         rec.height = out.height;
@@ -375,6 +381,161 @@
         '아직 명단이 없습니다. <b>＋ 어르신 추가</b>를 눌러 넣어주세요. 한 번만 넣으면 계속 씁니다.'));
     }
     return names;
+  }
+
+  /* ── 자르기 편집기 ────────────────────────────────
+   *
+   * 값 하나(위·아래 비율)를 두 가지 방법으로 조작한다.
+   *   · 사진 위의 선을 끈다   — 마우스에서 편하다 (자를 자리에 바로 긋는다)
+   *   · 아래 슬라이더를 민다  — 손가락에서 편하다 (사진을 안 가린다)
+   *
+   * 끄는 동안 화면을 다시 그리지 않는다. 다시 그리면 끌던 손이 끊긴다.
+   * 그래서 값이 바뀌면 style 만 직접 고친다.
+   */
+  function buildCropEditor(host, item) {
+    var stage = UI.el('div', 'stage2');
+    var fit   = UI.el('div', 'fit');
+
+    var img = document.createElement('img');
+    img.src = item.viewUrl;
+    img.alt = '고른 사진';
+    img.draggable = false;
+    fit.appendChild(img);
+
+    var cutT = UI.el('div', 'cut t');
+    var txtT = UI.el('span', null, '위쪽이 지워집니다');
+    cutT.appendChild(txtT);
+    var cutB = UI.el('div', 'cut b');
+    var txtB = UI.el('span', null, '이 부분이 지워집니다');
+    cutB.appendChild(txtB);
+    fit.appendChild(cutT);
+    fit.appendChild(cutB);
+
+    var hndT = UI.el('div', 'hnd t');
+    var gripT = UI.el('div', 'grip', '위 0%');
+    hndT.appendChild(gripT);
+    hndT.setAttribute('role', 'slider');
+    hndT.setAttribute('aria-label', '위에서 자를 위치');
+
+    var hndB = UI.el('div', 'hnd b');
+    var gripB = UI.el('div', 'grip', '아래 0%');
+    hndB.appendChild(gripB);
+    hndB.setAttribute('role', 'slider');
+    hndB.setAttribute('aria-label', '아래에서 자를 위치');
+
+    fit.appendChild(hndT);
+    fit.appendChild(hndB);
+    stage.appendChild(fit);
+    host.appendChild(stage);
+
+    /* 돌리기 */
+    var ctl = UI.el('div', 'cropctl');
+    var rots = UI.el('div', 'rots');
+    [['↺', -1, '왼쪽으로 돌리기'], ['↻', 1, '오른쪽으로 돌리기']].forEach(function (r) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'rotbtn';
+      b.textContent = r[0];
+      b.title = r[2];
+      b.setAttribute('aria-label', r[2]);
+      b.addEventListener('click', function () { rotate(item, r[1]); });
+      rots.appendChild(b);
+    });
+    ctl.appendChild(rots);
+    ctl.appendChild(UI.el('div', 'crophint',
+      '사진 위의 <b>흰 선을 끌거나</b>, 아래 막대를 밀어 조절하세요.'));
+    host.appendChild(ctl);
+
+    /* 슬라이더 두 줄 */
+    function makeRow(label, which) {
+      var row = UI.el('div', 'croprow');
+      row.appendChild(UI.el('div', 'k', label));
+      var sl = document.createElement('input');
+      sl.type = 'range'; sl.min = '0';
+      sl.max = String(Math.round(Model.CROP_MAX_EACH * 100));
+      sl.step = '1';
+      sl.setAttribute('aria-label', label + '에서 자를 크기');
+      var v = UI.el('div', 'v', '0%');
+      row.appendChild(sl);
+      row.appendChild(v);
+      host.appendChild(row);
+      sl.addEventListener('input', function (e) {
+        var r = Number(e.target.value) / 100;
+        if (which === 'top') item.cropTop = r; else item.cropBottom = r;
+        apply(which);
+      });
+      return { sl: sl, v: v };
+    }
+    var rowT = makeRow('위', 'top');
+    var rowB = makeRow('아래', 'bottom');
+
+    /* 값 하나 → 화면 전부에 반영 */
+    function apply(which) {
+      var c = Model.clampCrop(item.cropTop, item.cropBottom, which);
+      item.cropTop = c.top;
+      item.cropBottom = c.bottom;
+
+      var tp = Math.round(c.top * 100);
+      var bp = Math.round(c.bottom * 100);
+
+      cutT.style.height = tp + '%';
+      cutB.style.height = bp + '%';
+      hndT.style.top    = tp + '%';
+      hndB.style.bottom = bp + '%';
+
+      gripT.textContent = '위 ' + tp + '%';
+      gripB.textContent = '아래 ' + bp + '%';
+      txtT.style.display = c.top    > 0.06 ? '' : 'none';
+      txtB.style.display = c.bottom > 0.06 ? '' : 'none';
+
+      if (rowT.sl.value !== String(tp)) rowT.sl.value = String(tp);
+      if (rowB.sl.value !== String(bp)) rowB.sl.value = String(bp);
+      rowT.v.textContent = tp + '%';
+      rowB.v.textContent = bp + '%';
+
+      hndT.setAttribute('aria-valuenow', tp);
+      hndB.setAttribute('aria-valuenow', bp);
+    }
+
+    /* 선을 끄는 동작 — 마우스·손가락 모두 pointer 로 처리한다 */
+    function wireDrag(hnd, which) {
+      hnd.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        try { hnd.setPointerCapture(e.pointerId); } catch (_) {}
+        hnd.classList.add('drag');
+      });
+      hnd.addEventListener('pointermove', function (e) {
+        if (!hnd.classList.contains('drag')) return;
+        var r = fit.getBoundingClientRect();
+        if (!r.height) return;
+        var ratio = which === 'top'
+          ? (e.clientY - r.top) / r.height
+          : (r.bottom - e.clientY) / r.height;
+        if (which === 'top') item.cropTop = ratio; else item.cropBottom = ratio;
+        apply(which);
+      });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) {
+        hnd.addEventListener(ev, function (e) {
+          try { hnd.releasePointerCapture(e.pointerId); } catch (_) {}
+          hnd.classList.remove('drag');
+        });
+      });
+      /* 키보드로도 조절할 수 있게 */
+      hnd.tabIndex = 0;
+      hnd.addEventListener('keydown', function (e) {
+        var step = e.shiftKey ? 0.05 : 0.01;
+        var d = (e.key === 'ArrowUp' || e.key === 'ArrowLeft') ? -step
+              : (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? step : 0;
+        if (!d) return;
+        e.preventDefault();
+        if (which === 'top') item.cropTop += d; else item.cropBottom -= d;
+        apply(which);
+      });
+    }
+    wireDrag(hndT, 'top');
+    wireDrag(hndB, 'bottom');
+
+    apply(null);
+    return { apply: apply };
   }
 
   /* 한 줄 메모 입력 + 빠른 문구 */
@@ -830,56 +991,11 @@
 
       /* ── 사진 + 자를 자리 ──
          틀 높이를 고정하고 그 안에서만 사진이 바뀌게 한다 */
-      var stage = UI.el('div', 'stage2');
-      var fit = UI.el('div', 'fit');
-      var im = document.createElement('img');
-      im.src = item.viewUrl;
-      im.alt = '고른 사진';
-      fit.appendChild(im);
-      var cut = UI.el('div', 'cut');
-      cut.style.height = Math.round(item.cropRatio * 100) + '%';
-      cut.appendChild(UI.el('span', null, item.cropRatio > 0 ? '이 부분이 지워집니다' : ''));
-      fit.appendChild(cut);
-      stage.appendChild(fit);
-      c.appendChild(stage);
-
-      /* 돌리기(좌·우) + 자를 위치 */
-      var ctl = UI.el('div', 'cropctl');
-      var rots = UI.el('div', 'rots');
-      var rotL = document.createElement('button');
-      rotL.type = 'button'; rotL.className = 'rotbtn';
-      rotL.textContent = '↺';
-      rotL.title = '왼쪽으로 돌리기';
-      rotL.setAttribute('aria-label', '왼쪽으로 돌리기');
-      rotL.addEventListener('click', function () { rotate(item, -1); });
-      var rotR = document.createElement('button');
-      rotR.type = 'button'; rotR.className = 'rotbtn';
-      rotR.textContent = '↻';
-      rotR.title = '오른쪽으로 돌리기';
-      rotR.setAttribute('aria-label', '오른쪽으로 돌리기');
-      rotR.addEventListener('click', function () { rotate(item, 1); });
-      rots.appendChild(rotL);
-      rots.appendChild(rotR);
-      ctl.appendChild(rots);
-
-      var sl = document.createElement('input');
-      sl.type = 'range'; sl.min = '0'; sl.max = '40'; sl.step = '1';
-      sl.value = String(Math.round(item.cropRatio * 100));
-      sl.setAttribute('aria-label', '지울 부분의 크기');
-      sl.addEventListener('input', function (e) {
-        item.cropRatio = Number(e.target.value) / 100;
-        cut.style.height = e.target.value + '%';
-        cut.firstChild.textContent = item.cropRatio > 0 ? '이 부분이 지워집니다' : '';
-        vlab.textContent = e.target.value + '%';
-      });
-      ctl.appendChild(sl);
-      var vlab = UI.el('div', 'v', Math.round(item.cropRatio * 100) + '%');
-      ctl.appendChild(vlab);
-      c.appendChild(ctl);
+      buildCropEditor(c, item);
 
       c.appendChild(UI.el('div', 'note',
         '작품에 적힌 <b>이름이 빗금 안에 들어가는지</b> 확인해 주세요. ' +
-        '이름칸이 옆이나 위에 있으면 <b>↺ ↻</b> 로 아래로 오게 돌리시면 됩니다.'));
+        '이름칸이 옆에 있으면 <b>↺ ↻</b> 로 위나 아래로 오게 돌리시면 됩니다.'));
 
       /* ── 어느 어르신 것인지 ── */
       var sec1 = UI.el('div', 'sect');

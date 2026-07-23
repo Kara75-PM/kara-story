@@ -107,9 +107,12 @@
 
       note: (input.note || '').trim(),
 
-      /* 이름칸 제거 기록 */
-      redacted:    input.redacted === true,
-      redactRatio: input.redactRatio != null ? input.redactRatio : null,
+      /* 잘라낸 기록 — 위·아래를 따로 둔다.
+         v1 에서는 아래 하나뿐이었다(redactRatio). 옛 값은 아래로 읽는다. */
+      redacted:     input.redacted === true,
+      redactTop:    input.redactTop != null ? input.redactTop : 0,
+      redactBottom: input.redactBottom != null ? input.redactBottom
+                  : (input.redactRatio != null ? input.redactRatio : 0),
 
       /* 이미지 메타 (실제 데이터는 blobs 스토어에 따로 둔다) */
       width:     input.width || null,
@@ -144,6 +147,26 @@
     return (atYear || new Date().getFullYear()) - elder.birthYear;
   }
 
+  /* ── 자르기 값 ──
+   * 위·아래를 따로 자른다. 남는 부분이 너무 작아지지 않게 막는다.
+   */
+  var CROP_MAX_EACH = 0.60;   // 한쪽 최대
+  var CROP_KEEP_MIN = 0.20;   // 남겨야 하는 최소
+
+  function clampCrop(top, bottom, movingWhich) {
+    top    = Math.min(CROP_MAX_EACH, Math.max(0, Number(top)    || 0));
+    bottom = Math.min(CROP_MAX_EACH, Math.max(0, Number(bottom) || 0));
+
+    var over = (top + bottom) - (1 - CROP_KEEP_MIN);
+    if (over > 0) {
+      /* 지금 움직이는 쪽을 살리고 반대쪽을 줄인다 */
+      if (movingWhich === 'top')         bottom = Math.max(0, bottom - over);
+      else if (movingWhich === 'bottom') top    = Math.max(0, top - over);
+      else { top = Math.max(0, top - over / 2); bottom = Math.max(0, bottom - over / 2); }
+    }
+    return { top: top, bottom: bottom };
+  }
+
   /* 시기를 사람이 읽는 말로 */
   function periodLabel(record) {
     if (record.occurredHint) {
@@ -169,6 +192,9 @@
     makeRecord: makeRecord,
     validateRecord: validateRecord,
     ageOf: ageOf,
-    periodLabel: periodLabel
+    periodLabel: periodLabel,
+    CROP_MAX_EACH: CROP_MAX_EACH,
+    CROP_KEEP_MIN: CROP_KEEP_MIN,
+    clampCrop: clampCrop
   };
 })(window);

@@ -47,13 +47,22 @@
     });
   }
 
-  /* ── 캔버스에 그려서: 돌리고 → 아래를 자르고 → 크기 줄이기 ──
+  /* ── 캔버스에 그려서: 돌리고 → 위·아래를 자르고 → 크기 줄이기 ──
    *
    * 순서가 중요하다. 먼저 돌린 다음에 잘라야
-   * "보이는 화면의 아래쪽"이 잘린다.
+   * "보이는 화면의 위·아래"가 잘린다.
+   *
+   * crop = {top: 0~0.6, bottom: 0~0.6}  (돌린 뒤 기준)
    */
-  function drawScaled(loaded, longEdge, cropBottomRatio, rot) {
+  function normCrop(crop) {
+    if (crop == null) return { top: 0, bottom: 0 };
+    if (typeof crop === 'number') return { top: 0, bottom: crop };   /* 옛 호출 방식 */
+    return { top: crop.top || 0, bottom: crop.bottom || 0 };
+  }
+
+  function drawScaled(loaded, longEdge, crop, rot) {
     rot = ((rot || 0) % 360 + 360) % 360;
+    var c = normCrop(crop);
     var sw = loaded.w, sh = loaded.h;
 
     /* 돌린 뒤의 크기 */
@@ -61,9 +70,16 @@
     var rw = quarter ? sh : sw;
     var rh = quarter ? sw : sh;
 
-    /* 아래쪽 잘라내기 (이름칸 제거) — 돌린 뒤 기준 */
-    var ratio = Math.min(0.6, Math.max(0, cropBottomRatio || 0));
-    var keepH = Math.max(1, Math.round(rh * (1 - ratio)));
+    var top    = Math.min(0.6, Math.max(0, c.top));
+    var bottom = Math.min(0.6, Math.max(0, c.bottom));
+    if (top + bottom > 0.8) {                 /* 남는 것이 20% 미만이 되지 않게 */
+      var over = (top + bottom) - 0.8;
+      top    = Math.max(0, top - over / 2);
+      bottom = Math.max(0, bottom - over / 2);
+    }
+
+    var offY  = Math.round(rh * top);                            /* 위에서 버리는 만큼 */
+    var keepH = Math.max(1, Math.round(rh * (1 - top - bottom))); /* 남기는 높이 */
 
     var scale = Math.min(1, longEdge / Math.max(rw, keepH));
     var dw = Math.max(1, Math.round(rw * scale));
@@ -76,6 +92,7 @@
 
     ctx.save();
     ctx.scale(scale, scale);
+    ctx.translate(0, -offY);            /* 위로 끌어올려 윗부분을 캔버스 밖으로 보낸다 */
     if (rot === 90)       { ctx.translate(rw, 0);  ctx.rotate(Math.PI / 2); }
     else if (rot === 180) { ctx.translate(rw, rh); ctx.rotate(Math.PI); }
     else if (rot === 270) { ctx.translate(0, rh);  ctx.rotate(-Math.PI / 2); }
@@ -112,8 +129,8 @@
   }
 
   /* 미리보기 URL — 자를 자리는 화면에서 겹쳐 보여주므로 여기선 자르지 않는다 */
-  function previewUrl(prepared, cropBottomRatio, rot) {
-    var cv = drawScaled(prepared.loaded, 900, cropBottomRatio, rot);
+  function previewUrl(prepared, crop, rot) {
+    var cv = drawScaled(prepared.loaded, 900, crop, rot);
     return cv.toDataURL('image/jpeg', 0.8);
   }
 
@@ -129,9 +146,9 @@
   }
 
   /* 최종 저장본 + 썸네일 */
-  function finalize(prepared, cropBottomRatio, rot) {
-    var main  = drawScaled(prepared.loaded, MAX_LONG_EDGE, cropBottomRatio, rot);
-    var thumb = drawScaled(prepared.loaded, THUMB_EDGE,    cropBottomRatio, rot);
+  function finalize(prepared, crop, rot) {
+    var main  = drawScaled(prepared.loaded, MAX_LONG_EDGE, crop, rot);
+    var thumb = drawScaled(prepared.loaded, THUMB_EDGE,    crop, rot);
     return Promise.all([canvasToBlob(main), canvasToBlob(thumb, 0.8)])
       .then(function (bs) {
         return {
