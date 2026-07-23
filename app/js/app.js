@@ -87,8 +87,8 @@
       return true;
     });
 
-    if (rejected.length) UI.say(rejected.length + '개는 사진이 아니라 건너뜁니다');
-    if (!ok.length) { UI.say('사진 파일이 아닙니다'); return []; }
+    if (rejected.length) UI.say(rejected.length + '개는 사진이 아니라 건너뜁니다', { tone: 'warn' });
+    if (!ok.length) { UI.say('사진 파일이 아닙니다', { tone: 'warn' }); return []; }
 
     /* 파일명 순으로 — 폰 사진은 대개 시간순이 된다 */
     ok.sort(function (a, b) {
@@ -134,7 +134,7 @@
     var items = toItems(fileList);
     if (!items.length) return;
     if (items.length > MAX_FILES) {
-      UI.say('한 번에 ' + MAX_FILES + '장까지만 받습니다');
+      UI.say('한 번에 ' + MAX_FILES + '장까지만 받습니다', { tone: 'warn' });
       items = items.slice(0, MAX_FILES);
     }
     S.queue = items;
@@ -151,9 +151,9 @@
     if (!items.length) return;
 
     var room = MAX_FILES - S.queue.length;
-    if (room <= 0) { UI.say('한 번에 ' + MAX_FILES + '장까지만 받습니다'); return; }
+    if (room <= 0) { UI.say('한 번에 ' + MAX_FILES + '장까지만 받습니다', { tone: 'warn' }); return; }
     if (items.length > room) {
-      UI.say(room + '장만 더 넣었습니다 (최대 ' + MAX_FILES + '장)');
+      UI.say(room + '장만 더 넣었습니다 (최대 ' + MAX_FILES + '장)', { tone: 'warn' });
       items = items.slice(0, room);
     }
 
@@ -162,7 +162,7 @@
     var at = S.idx + 1;
     S.queue.splice.apply(S.queue, [at, 0].concat(items));
 
-    UI.say(items.length + '장을 ' + (at + 1) + '번째에 넣었습니다');
+    UI.say(items.length + '장을 ' + (at + 1) + '번째에 넣었습니다', { tone: 'ok' });
 
     /* 방금 넣은 첫 장으로 바로 이동 */
     S.idx = at;
@@ -217,8 +217,9 @@
     item.viewUrl = Img.previewUrl(item.prepared, 0, item.rot);
   }
 
-  function rotate(item) {
-    item.rot = ((item.rot || 0) + 90) % 360;
+  /* dir: -1 왼쪽, +1 오른쪽 */
+  function rotate(item, dir) {
+    item.rot = (((item.rot || 0) + dir * 90) % 360 + 360) % 360;
     refreshView(item);
     render();
   }
@@ -230,9 +231,9 @@
     if (!name) return;
     var e = Model.makeElder({ name: name });
     var errs = Model.validateElder(e);
-    if (errs.length) { UI.say(errs[0]); return; }
+    if (errs.length) { UI.say(errs[0], { tone: 'warn' }); return; }
     if (S.elders.some(function (x) { return x.name === name; })) {
-      UI.say('이미 있는 이름입니다');
+      UI.say('이미 있는 이름입니다', { tone: 'warn' });
       return;
     }
     Store.saveElder(e).then(function () {
@@ -240,7 +241,7 @@
       S.elders.sort(function (a, b) { return a.name.localeCompare(b.name, 'ko'); });
       var item = S.queue[S.idx];
       if (item) item.elderId = e.id;      /* 방금 넣은 분으로 바로 골라준다 */
-      UI.say(name + ' 어르신을 명단에 넣었습니다');
+      /* 명단에 이름이 생기고 곧바로 선택된 것이 보인다 — 따로 알리지 않는다 */
       render();
     });
   }
@@ -255,7 +256,7 @@
   function saveCurrent() {
     var item = S.queue[S.idx];
     if (!item || !item.prepared || item.saving) return;
-    if (!item.elderId) { UI.say('어느 어르신 것인지 골라주세요'); return; }
+    if (!item.elderId) { UI.say('어느 어르신 것인지 골라주세요', { tone: 'warn' }); return; }
 
     item.saving = true;
     render();
@@ -283,7 +284,7 @@
         Img.dispose(item.prepared);
         item.prepared = null;
         UI.setChip('브라우저에 저장 중', 'ok');
-        UI.say(elderName(item.elderId) + ' 어르신 · 저장했습니다');
+        /* 알리지 않는다 — 썸네일에 ✓ 가 뜨고 다음 장으로 넘어가는 것이 이미 답이다 */
         return refreshData();
       })
       .then(function () {
@@ -456,11 +457,36 @@
     UI.buttons([]);
   }
 
+  /* 지우기 — 실제로 지우지 않고 표시만 하므로 되돌릴 수 있다.
+     "지웠습니다"라고 알리는 것보다 "되돌릴 수 있다"고 알리는 편이 쓸모 있다. */
   function confirmDelete(rec) {
     if (!confirm(elderName(rec.elderId) + ' 어르신 기록을 지울까요?')) return;
     Store.removeRecord(rec.id)
       .then(refreshData)
-      .then(function () { UI.say('지웠습니다'); render(); });
+      .then(function () {
+        render();
+        UI.say(elderName(rec.elderId) + ' 어르신 기록을 지웠습니다', {
+          tone: 'warn',
+          action: {
+            label: '되돌리기',
+            fn: function () { undoDelete(rec.id); }
+          }
+        });
+      });
+  }
+
+  function undoDelete(id) {
+    Store.getRecord(id).then(function (r) {
+      if (!r) return;
+      r.deletedAt = null;
+      r.updatedAt = Model.nowIso();
+      return Store.saveRecord(r)
+        .then(refreshData)
+        .then(function () {
+          render();
+          UI.say('되돌렸습니다', { tone: 'ok' });
+        });
+    });
   }
 
   /* ── 큐 (1단계 범위: 사진을 받아 한 장씩 보여주는 데까지) ── */
@@ -506,25 +532,39 @@
       UI.empty(c, '사진을 읽고 있습니다…');
 
     } else {
-      /* ── 사진 + 자를 자리 ── */
-      var box = UI.el('div', 'cropbox');
+      /* ── 사진 + 자를 자리 ──
+         틀 높이를 고정하고 그 안에서만 사진이 바뀌게 한다 */
+      var stage = UI.el('div', 'stage2');
+      var fit = UI.el('div', 'fit');
       var im = document.createElement('img');
       im.src = item.viewUrl;
       im.alt = '고른 사진';
-      box.appendChild(im);
+      fit.appendChild(im);
       var cut = UI.el('div', 'cut');
       cut.style.height = Math.round(item.cropRatio * 100) + '%';
       cut.appendChild(UI.el('span', null, item.cropRatio > 0 ? '이 부분이 지워집니다' : ''));
-      box.appendChild(cut);
-      c.appendChild(box);
+      fit.appendChild(cut);
+      stage.appendChild(fit);
+      c.appendChild(stage);
 
-      /* 돌리기 + 자를 위치 */
+      /* 돌리기(좌·우) + 자를 위치 */
       var ctl = UI.el('div', 'cropctl');
-      var rot = document.createElement('button');
-      rot.type = 'button'; rot.className = 'rotbtn';
-      rot.textContent = '🔄 돌리기';
-      rot.addEventListener('click', function () { rotate(item); });
-      ctl.appendChild(rot);
+      var rots = UI.el('div', 'rots');
+      var rotL = document.createElement('button');
+      rotL.type = 'button'; rotL.className = 'rotbtn';
+      rotL.textContent = '↺';
+      rotL.title = '왼쪽으로 돌리기';
+      rotL.setAttribute('aria-label', '왼쪽으로 돌리기');
+      rotL.addEventListener('click', function () { rotate(item, -1); });
+      var rotR = document.createElement('button');
+      rotR.type = 'button'; rotR.className = 'rotbtn';
+      rotR.textContent = '↻';
+      rotR.title = '오른쪽으로 돌리기';
+      rotR.setAttribute('aria-label', '오른쪽으로 돌리기');
+      rotR.addEventListener('click', function () { rotate(item, 1); });
+      rots.appendChild(rotL);
+      rots.appendChild(rotR);
+      ctl.appendChild(rots);
 
       var sl = document.createElement('input');
       sl.type = 'range'; sl.min = '0'; sl.max = '40'; sl.step = '1';
@@ -542,8 +582,8 @@
       c.appendChild(ctl);
 
       c.appendChild(UI.el('div', 'note',
-        '작품에 적힌 <b>이름이 지워지는지</b> 확인해 주세요. ' +
-        '이름칸이 옆이나 위에 있으면 <b>돌리기</b>로 아래로 오게 하시면 됩니다.'));
+        '작품에 적힌 <b>이름이 빗금 안에 들어가는지</b> 확인해 주세요. ' +
+        '이름칸이 옆이나 위에 있으면 <b>↺ ↻</b> 로 아래로 오게 돌리시면 됩니다.'));
 
       /* ── 어느 어르신 것인지 ── */
       var sec1 = UI.el('div', 'sect');

@@ -8,16 +8,16 @@
 (function (global) {
   "use strict";
 
-  var view  = null;
-  var foot  = null;
-  var chip  = null;
-  var toast = null;
+  var view   = null;
+  var foot   = null;
+  var chip   = null;
+  var notice = null;
 
   function init() {
-    view  = document.getElementById('view');
-    foot  = document.getElementById('foot');
-    chip  = document.getElementById('chip');
-    toast = document.getElementById('toast');
+    view   = document.getElementById('view');
+    foot   = document.getElementById('foot');
+    chip   = document.getElementById('chip');
+    notice = document.getElementById('notice');
   }
 
   function el(tag, cls, html) {
@@ -83,11 +83,43 @@
     return lab;
   }
 
-  function say(msg, ms) {
-    toast.textContent = msg;
-    toast.classList.add('on');
+  /* 알림
+   *
+   * 원칙: 화면이 이미 말해주는 것은 알리지 않는다.
+   *       (저장하면 ✓가 뜨고, 지우면 목록에서 사라진다 — 그게 답이다)
+   *       화면 밖에서 일어난 일만 알린다.
+   *
+   * say(글, {tone:'ok'|'warn'|'info', ms, action:{label, fn}})
+   */
+  function say(text, opts) {
+    opts = opts || {};
+    var tone = opts.tone || 'info';
+    var icon = tone === 'ok' ? '✅' : tone === 'warn' ? '⚠️' : 'ℹ️';
+
+    notice.className = 'notice ' + tone;
+    notice.innerHTML = '';
+    notice.appendChild(el('span', 'ic', icon));
+    notice.appendChild(el('span', 'tx', esc(text)));
+
+    if (opts.action) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = opts.action.label;
+      b.addEventListener('click', function () {
+        hide();
+        opts.action.fn();
+      });
+      notice.appendChild(b);
+    }
+
+    requestAnimationFrame(function () { notice.classList.add('on'); });
     clearTimeout(say._t);
-    say._t = setTimeout(function () { toast.classList.remove('on'); }, ms || 2000);
+    say._t = setTimeout(hide, opts.ms || (opts.action ? 6000 : 2400));
+  }
+
+  function hide() {
+    notice.classList.remove('on');
+    clearTimeout(say._t);
   }
 
   /* 진행 막대 — "3장 중 1번째" */
@@ -156,6 +188,7 @@
     buttons: buttons,
     pickButton: pickButton,
     say: say,
+    hideNotice: hide,
     progress: progress,
     queueStrip: queueStrip,
     syncFootPad: syncFootPad,
