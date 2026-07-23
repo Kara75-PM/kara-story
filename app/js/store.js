@@ -13,13 +13,21 @@
  *   Store.getElder(id)
  *   Store.saveElder(elder)
  *   Store.removeElder(id)
- *   Store.listRecords({elderId, limit}) 기록 목록 (이미지는 안 딸려온다)
+ *   Store.listRecords({elderId, deleted, limit})  기록 목록 (이미지는 안 딸려온다)
  *   Store.getRecord(id)
  *   Store.saveRecord(record, blob)      기록 + 이미지
- *   Store.removeRecord(id)              지우지 않고 표시만
+ *   Store.removeRecord(id)              🗑 지운 것으로 (되돌릴 수 있음)
+ *   Store.restoreRecord(id)             되돌리기
+ *   Store.purgeRecord(id)               완전히 지우기 (복구 불가)
+ *   Store.purgeExpired(days)            오래된 지운 것 자동 정리
  *   Store.getImage(recordId)            Blob
  *   Store.getThumb(recordId)            Blob (작은 것)
  *   Store.stats()                       개수·용량
+ *
+ * ── 지우기가 두 종류인 이유 ────────────────────────
+ *   실수 교정  : 잘못 찍음·잘못 고름 → 되돌릴 수 있어야 한다
+ *   의사 존중  : 어르신·가족이 원치 않음 → 진짜로 지워져야 한다
+ *   섞으면 둘 중 하나는 반드시 어긴다. 그래서 나눠 둔다.
  * ============================================================ */
 
 (function (global) {
@@ -121,6 +129,11 @@
 
   /* ── 기록 ───────────────────────────────────────── */
 
+  /* opts.deleted
+   *   생략 · false → 살아 있는 것만 (기본)
+   *   true          → 지운 것만
+   *   'all'         → 전부
+   */
   function listRecords(opts) {
     opts = opts || {};
     var p = opts.elderId
@@ -128,14 +141,26 @@
       : getAll(S_RECORDS);
 
     return p.then(function (rows) {
-      rows = rows.filter(function (r) { return !r.deletedAt; });
+      if (opts.deleted === true) {
+        rows = rows.filter(function (r) { return !!r.deletedAt; });
+      } else if (opts.deleted !== 'all') {
+        rows = rows.filter(function (r) { return !r.deletedAt; });
+      }
       if (opts.kind)       rows = rows.filter(function (r) { return r.kind === opts.kind; });
       if (opts.occurredAt) rows = rows.filter(function (r) { return r.occurredAt === opts.occurredAt; });
-      /* 최근 것이 위로 */
-      rows.sort(function (a, b) {
-        var d = String(b.occurredAt || '').localeCompare(String(a.occurredAt || ''));
-        return d !== 0 ? d : String(b.createdAt).localeCompare(String(a.createdAt));
-      });
+
+      if (opts.deleted === true) {
+        /* 지운 것은 "최근에 지운 것"이 위로 */
+        rows.sort(function (a, b) {
+          return String(b.deletedAt || '').localeCompare(String(a.deletedAt || ''));
+        });
+      } else {
+        /* 최근 것이 위로 */
+        rows.sort(function (a, b) {
+          var d = String(b.occurredAt || '').localeCompare(String(a.occurredAt || ''));
+          return d !== 0 ? d : String(b.createdAt).localeCompare(String(a.createdAt));
+        });
+      }
       return opts.limit ? rows.slice(0, opts.limit) : rows;
     });
   }
@@ -162,21 +187,48 @@
     });
   }
 
-  /* 지우지 않고 표시만 — 실수로 지웠을 때 복구할 수 있게 */
-  function removeRecord(id, hard) {
-    if (hard) {
-      return tx([S_RECORDS, S_BLOBS], 'readwrite').then(function (t) {
-        return Promise.all([
-          reqToPromise(t.objectStore(S_RECORDS).delete(id)),
-          reqToPromise(t.objectStore(S_BLOBS).delete(id))
-        ]);
-      });
-    }
+  /* 🗑 지운 것으로 옮긴다 — 아직 실제로 지우지 않는다 */
+  function removeRecord(id) {
     return getRecord(id).then(function (r) {
       if (!r) return null;
       r.deletedAt = Model.nowIso();
       r.updatedAt = Model.nowIso();
       return saveRecord(r);
+    });
+  }
+
+  /* 되돌리기 */
+  function restoreRecord(id) {
+    return getRecord(id).then(function (r) {
+      if (!r) return null;
+      r.deletedAt = null;
+      r.updatedAt = Model.nowIso();
+      return saveRecord(r);
+    });
+  }
+
+  /* 완전히 지운다 — 사진 파일까지 없앤다. 되돌릴 수 없다.
+     어르신·가족이 "빼달라"고 하신 경우가 여기다. */
+  function purgeRecord(id) {
+    return tx([S_RECORDS, S_BLOBS], 'readwrite').then(function (t) {
+      return Promise.all([
+        reqToPromise(t.objectStore(S_RECORDS).delete(id)),
+        reqToPromise(t.objectStore(S_BLOBS).delete(id))
+      ]).then(function () { return true; });
+    });
+  }
+
+  /* 지운 지 오래된 것을 자동으로 완전 삭제한다.
+     개인정보를 무한정 들고 있지 않기 위해서다. 앱을 열 때 조용히 돈다. */
+  function purgeExpired(days) {
+    days = days || 30;
+    var cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    return listRecords({ deleted: true }).then(function (rows) {
+      var old = rows.filter(function (r) { return r.deletedAt && r.deletedAt < cutoff; });
+      if (!old.length) return 0;
+      return old.reduce(function (chain, r) {
+        return chain.then(function () { return purgeRecord(r.id); });
+      }, Promise.resolve()).then(function () { return old.length; });
     });
   }
 
@@ -199,15 +251,24 @@
   /* ── 통계 ───────────────────────────────────────── */
 
   function stats() {
-    return Promise.all([listElders(), listRecords(), getAll(S_BLOBS)])
-      .then(function (r) {
-        var bytes = 0;
-        r[2].forEach(function (b) {
-          if (b.image && b.image.size) bytes += b.image.size;
-          if (b.thumb && b.thumb.size) bytes += b.thumb.size;
-        });
-        return { elders: r[0].length, records: r[1].length, bytes: bytes };
+    return Promise.all([
+      listElders(),
+      listRecords(),
+      listRecords({ deleted: true }),
+      getAll(S_BLOBS)
+    ]).then(function (r) {
+      var bytes = 0;
+      r[3].forEach(function (b) {
+        if (b.image && b.image.size) bytes += b.image.size;
+        if (b.thumb && b.thumb.size) bytes += b.thumb.size;
       });
+      return {
+        elders: r[0].length,
+        records: r[1].length,
+        deleted: r[2].length,
+        bytes: bytes
+      };
+    });
   }
 
   /* 개발용 — 전부 지우기 */
@@ -232,6 +293,9 @@
     getRecord: getRecord,
     saveRecord: saveRecord,
     removeRecord: removeRecord,
+    restoreRecord: restoreRecord,
+    purgeRecord: purgeRecord,
+    purgeExpired: purgeExpired,
     getImage: getImage,
     getThumb: getThumb,
     stats: stats,
