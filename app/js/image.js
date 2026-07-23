@@ -101,6 +101,17 @@
     return cv.toDataURL('image/jpeg', 0.8);
   }
 
+  /* 목록 줄에 쓸 아주 작은 그림.
+     원본을 붙들고 있지 않고 바로 놓아준다 — 30장을 동시에 들고 있으면 폰이 버티지 못한다. */
+  function quickThumb(file, edge) {
+    return loadImage(file).then(function (loaded) {
+      var cv = drawScaled(loaded, edge || 140, 0);
+      var url = cv.toDataURL('image/jpeg', 0.7);
+      try { if (loaded.src && loaded.src.close) loaded.src.close(); } catch (e) {}
+      return url;
+    });
+  }
+
   /* 최종 저장본 + 썸네일 */
   function finalize(prepared, cropBottomRatio) {
     var main  = drawScaled(prepared.loaded, MAX_LONG_EDGE, cropBottomRatio);
@@ -138,6 +149,7 @@
     THUMB_EDGE: THUMB_EDGE,
     prepare: prepare,
     previewUrl: previewUrl,
+    quickThumb: quickThumb,
     finalize: finalize,
     dispose: dispose,
     humanSize: humanSize

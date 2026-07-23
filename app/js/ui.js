@@ -113,9 +113,9 @@
       b.className = 'q' + (i === curIdx ? ' now' : '') + (it.saved ? ' done' : '');
       b.setAttribute('aria-label', (i + 1) + '번째 사진으로 이동');
       if (i === curIdx) b.setAttribute('aria-current', 'true');
-      if (it.thumbUrl) {
+      if (it.stripUrl) {
         var im = document.createElement('img');
-        im.src = it.thumbUrl;
+        im.src = it.stripUrl;
         im.alt = '';
         b.appendChild(im);
       }

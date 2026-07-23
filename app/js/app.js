@@ -86,11 +86,36 @@
 
     return ok.map(function (f) {
       return {
-        file: f, prepared: null, thumbUrl: null,
+        file: f,
+        prepared: null,     // 큰 그림 (지금 보고 있는 장만)
+        viewUrl: null,      // 큰 미리보기
+        stripUrl: null,     // 목록 줄에 쓸 작은 그림 (전부 미리 만든다)
         elderId: null, note: '', cropRatio: 0.15,
         saved: false, error: null
       };
     });
+  }
+
+  /* 목록 줄 그림을 뒤에서 하나씩 만든다.
+     전부 한꺼번에 만들면 폰이 멈춘다 — 한 장씩 순서대로. */
+  function buildStripThumbs() {
+    var pending = S.queue.filter(function (it) { return !it.stripUrl && !it.error; });
+    if (!pending.length) return;
+
+    var i = 0;
+    (function step() {
+      if (i >= pending.length) return;
+      var it = pending[i++];
+      /* 큐가 바뀌었으면 멈춘다 */
+      if (S.queue.indexOf(it) < 0) { step(); return; }
+      Img.quickThumb(it.file, 140)
+        .then(function (url) {
+          it.stripUrl = url;
+          if (S.screen === 'queue') render();
+        })
+        .catch(function () { it.stripUrl = null; })
+        .then(function () { setTimeout(step, 0); });
+    })();
   }
 
   /* 처음 고를 때 — 큐를 새로 만든다 */
@@ -106,6 +131,7 @@
     S.screen = 'queue';
     render();
     prepareCurrent();
+    buildStripThumbs();
   }
 
   /* 작업 중에 더 넣을 때 — 뒤에 이어 붙인다 */
@@ -131,6 +157,7 @@
     } else {
       render();
     }
+    buildStripThumbs();
   }
 
   /* 지금 장을 읽어 화면에 올린다 */
@@ -142,7 +169,8 @@
     Img.prepare(item.file)
       .then(function (prep) {
         item.prepared = prep;
-        item.thumbUrl = Img.previewUrl(prep, 0);   // 목록용은 자르지 않은 것
+        item.viewUrl = Img.previewUrl(prep, 0);
+        if (!item.stripUrl) item.stripUrl = Img.previewUrl(prep, 0);
         UI.setChip('브라우저에 저장 중', 'ok');
         render();
       })
@@ -312,7 +340,7 @@
       var wrap = UI.el('div', 'shotwrap');
       var im = document.createElement('img');
       im.className = 'shot';
-      im.src = item.thumbUrl;
+      im.src = item.viewUrl;
       im.alt = '고른 사진';
       wrap.appendChild(im);
       c.appendChild(wrap);
