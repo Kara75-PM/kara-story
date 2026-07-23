@@ -43,15 +43,20 @@
   }
 
   *{box-sizing:border-box}
-  html,body{margin:0; height:100%}
+  /* ⚠️ body 에 height:100% 를 주면 안 된다.
+     본문 높이가 화면 크기로 고정되어, 넘치는 내용 아래에는 여백이 생기지 않는다.
+     그러면 하단 고정 버튼이 마지막 내용을 덮는다. */
+  html{height:100%}
   body{
+    margin:0; min-height:100%;
     background:var(--ground); color:var(--ink);
     font-family:var(--body); font-size:16px; line-height:1.65;
     -webkit-font-smoothing:antialiased;
-    /* 하단 고정 버튼에 가리지 않게. 실제 높이는 JS 가 다시 잰다 */
-    padding-bottom:calc(7rem + env(safe-area-inset-bottom));
   }
-  .wrap{max-width:720px; margin:0 auto; padding:var(--s3)}
+  /* 하단 여백은 내용 상자에 준다 — 내용이 아무리 길어도 그 아래에 붙는다.
+     실제 높이는 JS 가 다시 잰다. */
+  .wrap{max-width:720px; margin:0 auto; padding:var(--s3);
+    padding-bottom:calc(8rem + env(safe-area-inset-bottom))}
 
   /* ── 큐 상단 바 ── */
   .qbar{display:flex; align-items:center; gap:.5rem; margin-bottom:var(--s2)}
@@ -142,12 +147,14 @@
   .shotbar .cnt{font-size:.82rem; font-weight:700; color:var(--muted);
     font-variant-numeric:tabular-nums}
 
-  .stage2{height:46vh; min-height:240px; max-height:420px;
+  /* 위·아래 여백 22px 은 0%·100% 자리의 손잡이가 틀 밖으로 잘리지 않게 하는 자리다.
+     손잡이는 선을 중심으로 위아래 20px 씩 뻗는다. */
+  .stage2{height:46vh; min-height:240px; max-height:420px; padding:22px 0;
     display:flex; align-items:center; justify-content:center;
     background:var(--surface-2); border-radius:6px; overflow:hidden}
   .fit{position:relative; display:inline-block; max-width:100%; max-height:100%; line-height:0}
-  .fit img{display:block; max-width:100%; max-height:46vh; width:auto; height:auto}
-  @media (max-height:700px){ .fit img{max-height:38vh} }
+  .fit img{display:block; max-width:100%; max-height:calc(46vh - 44px); width:auto; height:auto}
+  @media (max-height:700px){ .fit img{max-height:calc(38vh - 44px)} }
   /* 잘려나갈 부분 — 위·아래 각각 */
   .fit .cut{position:absolute; left:0; right:0;
     background:repeating-linear-gradient(45deg, rgba(140,58,46,.34) 0 8px, rgba(140,58,46,.18) 8px 16px);
@@ -329,7 +336,7 @@
     <span class="chip" id="chip">준비 중</span>
   </header>
   <div style="font-size:.68rem;color:var(--muted);letter-spacing:.1em;margin:-.5rem 0 .8rem">
-    v8 · 2026-07-23
+    v9 · 2026-07-23
   </div>
 
   <main id="view" tabindex="-1"></main>
@@ -340,10 +347,10 @@
 <div class="mask" id="mask" role="dialog" aria-modal="true"><div class="dlg" id="dlg"></div></div>
 
 <!-- ?v= 는 캐시 때문에 옛 파일이 남는 것을 막는다. 고칠 때마다 숫자를 올린다. -->
-<script src="js/model.js?v=8"></script>
-<script src="js/store.js?v=8"></script>
-<script src="js/image.js?v=8"></script>
-<script src="js/ui.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
+<script src="js/model.js?v=9"></script>
+<script src="js/store.js?v=9"></script>
+<script src="js/image.js?v=9"></script>
+<script src="js/ui.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>

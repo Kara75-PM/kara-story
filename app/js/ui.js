@@ -220,12 +220,19 @@
   }
 
   /* 하단 고정 버튼의 실제 높이만큼 본문 아래를 비운다.
-     기기마다 버튼 높이가 달라 CSS 고정값으로는 잘린다. */
+     기기마다 버튼 높이가 달라 CSS 고정값으로는 잘린다.
+
+     ⚠️ 여백은 body 가 아니라 .wrap(내용 상자)에 준다.
+     body 는 높이가 화면에 묶여 있어, 화면보다 긴 내용의 "아래"에는
+     여백이 생기지 않는다. 그러면 마지막 내용이 버튼에 덮인다. */
   function syncFootPad() {
-    var bar = document.querySelector('.foot');
-    if (!bar) return;
-    var h = bar.offsetHeight || 0;
-    document.body.style.paddingBottom = (h + 24) + 'px';
+    var bar  = document.querySelector('.foot');
+    var wrap = document.querySelector('.wrap');
+    if (!wrap) return;
+    document.body.style.paddingBottom = '';      /* 옛 버전이 남긴 값 지우기 */
+    var h = bar ? (bar.offsetHeight || 0) : 0;
+    wrap.style.paddingBottom =
+      'calc(' + (h + 28) + 'px + env(safe-area-inset-bottom))';
   }
 
   function msg(host, tone, html) {
