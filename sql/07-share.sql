@@ -22,7 +22,7 @@ begin
   t := encode(gen_random_bytes(24), 'hex');   -- 48자 16진 = 추측 불가
   update public.elders
      set share_token = t, updated_at = now()
-   where id = p_elder and center_id = public.my_center_id();
+   where id = p_elder and center_id = public.my_center_id() and active;  -- 내린 어르신엔 발급 안 함
   if not found then raise exception '권한이 없거나 없는 어르신입니다'; end if;
   return t;
 end $$;
@@ -104,6 +104,7 @@ as $$
       join public.elders  e on e.id = r.elder_id
      where (p_name = r.image_path or p_name = r.thumb_path)
        and e.share_token is not null
+       and e.active                 -- 내린(active=false) 어르신 사진은 즉시 막힌다 (R-13 정신)
        and r.deleted_at is null
   );
 $$;
