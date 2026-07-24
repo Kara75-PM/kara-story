@@ -1,5 +1,7 @@
 -- 그리움 A1-3 · 시험용 자료 (4/5)
--- ⚠️ 전부 지어낸 이름이다. 실제 어르신 정보가 아니다 (CLAUDE.md 7항).
+-- ⚠️ 전부 지어낸 이름·이메일이다. 실제 개인 정보를 넣지 않는다 (CLAUDE.md 7항).
+--    이 저장소는 Public 이다. 시험을 재현하려면 대시보드에
+--    아래 더미 이메일(@example.com)로 계정을 만들어 쓴다 — 개인 이메일 금지.
 -- 여러 번 실행해도 안전하다.
 
 insert into public.centers (name)
@@ -15,14 +17,14 @@ update public.profiles p
    set center_id = c.id, name = '김직원', role = 'manager'
   from auth.users u, public.centers c
  where p.id = u.id
-   and u.email = 'war0705+a@gmail.com'
+   and u.email = 'geurium-test-a@example.com'
    and c.name  = '가나다 주간보호센터';
 
 update public.profiles p
    set center_id = c.id, name = '이직원', role = 'manager'
   from auth.users u, public.centers c
  where p.id = u.id
-   and u.email = 'war0705+b@gmail.com'
+   and u.email = 'geurium-test-b@example.com'
    and c.name  = '라마바 주간보호센터';
 
 -- 센터마다 어르신 한 분씩

@@ -10,8 +10,8 @@ drop table if exists t_ids;
 
 create temp table rls_result(seq int, 항목 text, 결과 text);
 create temp table t_ids as select
-  (select id from auth.users where email = 'war0705+a@gmail.com') as a_user,
-  (select id from auth.users where email = 'war0705+b@gmail.com') as b_user,
+  (select id from auth.users where email = 'geurium-test-a@example.com') as a_user,
+  (select id from auth.users where email = 'geurium-test-b@example.com') as b_user,
   (select id from public.centers where name = '라마바 주간보호센터') as b_center,
   (select e.id from public.elders e join public.centers c on c.id = e.center_id
     where c.name = '라마바 주간보호센터' limit 1) as b_elder;
