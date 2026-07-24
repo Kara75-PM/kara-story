@@ -122,6 +122,14 @@
     return p[0]+'년 '+Number(p[1])+'월 '+Number(p[2])+'일';
   }
 
+  /* 사진이 하나도 안 남으면(전부 실패·폐기 직후 등) 안내로 바꾼다 —
+     카드는 0인데 "모두 N점"만 남는 어긋남을 막는다 */
+  function checkEmpty(){
+    if(!viewEl.querySelector('.card')){
+      fail('작품을 불러오지 못했습니다. 링크가 만료되었거나 잠시 문제가 있을 수 있어요.');
+    }
+  }
+
   /* anon 키로 비공개 사진 받기 (공유 활성일 때만 서버가 내준다) */
   function loadPhoto(path, imgEl){
     var card = imgEl.closest('.card');
@@ -129,18 +137,19 @@
       headers: { apikey: KEY, Authorization: 'Bearer '+KEY }
     }).then(function(r){ return r.ok ? r.blob() : null; })
       .then(function(b){
-        if(!b){ if(card) card.remove(); return; }  /* 못 받으면 그 카드는 뺀다 */
+        if(!b){ if(card) card.remove(); checkEmpty(); return; }  /* 못 받으면 그 카드는 뺀다 */
         var sk = imgEl.parentNode.querySelector('.skel');
         if(sk) sk.remove();
         imgEl.src = URL.createObjectURL(b);
-      }).catch(function(){ if(card) card.remove(); });
+      }).catch(function(){ if(card) card.remove(); checkEmpty(); });
   }
 
   function openBig(path){
     fetch(URL_+'/storage/v1/object/'+BUCKET+'/'+path, {
       headers: { apikey: KEY, Authorization: 'Bearer '+KEY }
     }).then(function(r){ return r.ok ? r.blob() : null; })
-      .then(function(b){ if(b){ boxImg.src = URL.createObjectURL(b); box.classList.add('on'); } });
+      .then(function(b){ if(b){ boxImg.src = URL.createObjectURL(b); box.classList.add('on'); } })
+      .catch(function(){ /* 원본 실패 — 썸네일은 이미 떠 있으니 조용히 넘어간다 */ });
   }
   box.addEventListener('click', function(){ box.classList.remove('on'); boxImg.src=''; });
 
