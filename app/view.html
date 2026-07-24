@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>그리움 — 어르신의 작품</title>
+<style>
+  :root{
+    --ground:#F4F5F3; --surface:#FFFFFF; --line:#E2E4E0;
+    --ink:#2B2F2D; --ink-2:#585E5A; --muted:#8A908B;
+    --accent:#8C3A2E; --accent-soft:#F3E7E3;
+    --shadow:0 1px 3px rgba(0,0,0,.06);
+    --display:'Nanum Myeongjo','Noto Serif KR',serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --ground:#151918; --surface:#1D2322; --line:#2C3331;
+           --ink:#E8ECEA; --ink-2:#AEB4B0; --muted:#7E847F;
+           --accent:#D98A78; --accent-soft:#2E2320; --shadow:0 1px 3px rgba(0,0,0,.4); }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0; background:var(--ground); color:var(--ink);
+    font-family:'Noto Sans KR',system-ui,sans-serif; line-height:1.6;
+    padding:env(safe-area-inset-top) 0 3rem}
+  .wrap{max-width:640px; margin:0 auto; padding:1.25rem}
+
+  /* 머리 */
+  header{text-align:center; padding:1.5rem 0 1rem}
+  .eyebrow{font-size:.78rem; letter-spacing:.14em; color:var(--accent); font-weight:700; margin:0}
+  h1{font-family:var(--display); font-size:1.9rem; line-height:1.35; margin:.4rem 0 .2rem}
+  .sub{color:var(--ink-2); font-size:.95rem; margin:0}
+
+  /* 상태 */
+  .state{text-align:center; padding:3rem 1rem; color:var(--muted)}
+  .state .big{font-size:1.1rem; color:var(--ink-2); margin-bottom:.4rem}
+  .spin{width:34px; height:34px; margin:0 auto 1rem; border:3px solid var(--line);
+    border-top-color:var(--accent); border-radius:50%; animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* 작품 카드 */
+  .count{text-align:center; color:var(--muted); font-size:.86rem; margin:.2rem 0 1.2rem}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    box-shadow:var(--shadow); overflow:hidden; margin-bottom:1.1rem}
+  .card .ph{display:block; width:100%; background:var(--surface); cursor:zoom-in;
+    border:none; padding:0; line-height:0}
+  .card .ph img{width:100%; height:auto; display:block}
+  .card .ph .skel{width:100%; aspect-ratio:4/3; background:
+    linear-gradient(100deg,var(--surface-2,#eee) 30%,var(--line) 50%,var(--surface-2,#eee) 70%);
+    background-size:200% 100%; animation:sk 1.3s linear infinite}
+  @keyframes sk{to{background-position:-200% 0}}
+  .card .meta{padding:.8rem 1rem 1rem}
+  .card .date{font-size:.8rem; color:var(--accent); font-weight:700; letter-spacing:.02em}
+  .card .note{margin:.3rem 0 0; font-size:1.02rem; color:var(--ink)}
+  .card .note.empty{color:var(--muted); font-size:.92rem}
+
+  footer{text-align:center; color:var(--muted); font-size:.78rem; margin-top:2rem; line-height:1.7}
+
+  /* 원본 크게 */
+  .box{position:fixed; inset:0; background:rgba(0,0,0,.88); display:none;
+    align-items:center; justify-content:center; padding:1rem; z-index:50; cursor:zoom-out}
+  .box.on{display:flex}
+  .box img{max-width:100%; max-height:100%; border-radius:6px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">그리움</p>
+      <h1 id="title">작품을 불러오는 중…</h1>
+      <p class="sub" id="sub">잠시만 기다려 주세요</p>
+    </header>
+    <div id="view">
+      <div class="state"><div class="spin"></div><div>불러오는 중…</div></div>
+    </div>
+    <footer>
+      센터에서 어르신이 남긴 작품입니다.<br>
+      이 링크는 가족에게만 보내는 것입니다.
+    </footer>
+  </div>
+
+  <div class="box" id="box" role="dialog" aria-label="작품 원본"><img alt=""></div>
+
+<script src="js/config.js?v=18"></script>
+<script>
+(function () {
+  "use strict";
+  var URL_ = (window.CONFIG && CONFIG.supabaseUrl) || '';
+  var KEY  = (window.CONFIG && CONFIG.supabaseKey) || '';
+  var BUCKET = 'artworks';
+
+  var titleEl = document.getElementById('title');
+  var subEl   = document.getElementById('sub');
+  var viewEl  = document.getElementById('view');
+  var box     = document.getElementById('box');
+  var boxImg  = box.querySelector('img');
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(m){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]; }); }
+
+  /* 토큰은 주소 해시(#t=)에 둔다 — 서버 로그·리퍼러에 안 남는다 */
+  function token(){
+    var h = location.hash || '';
+    var m = h.match(/[#&]t=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function state(html){ viewEl.innerHTML = '<div class="state">' + html + '</div>'; }
+
+  function fail(msg){
+    titleEl.textContent = '작품을 열 수 없습니다';
+    subEl.textContent = '';
+    state('<div class="big">' + esc(msg) + '</div>' +
+          '<div>링크를 보내주신 분께 다시 문의해 주세요.</div>');
+  }
+
+  /* 날짜: 2026-07-24 → 2026년 7월 24일 */
+  function humanDate(s){
+    if(!s) return '';
+    var p = String(s).split('-');
+    if(p.length!==3) return s;
+    return p[0]+'년 '+Number(p[1])+'월 '+Number(p[2])+'일';
+  }
+
+  /* anon 키로 비공개 사진 받기 (공유 활성일 때만 서버가 내준다) */
+  function loadPhoto(path, imgEl){
+    var card = imgEl.closest('.card');
+    fetch(URL_+'/storage/v1/object/'+BUCKET+'/'+path, {
+      headers: { apikey: KEY, Authorization: 'Bearer '+KEY }
+    }).then(function(r){ return r.ok ? r.blob() : null; })
+      .then(function(b){
+        if(!b){ if(card) card.remove(); return; }  /* 못 받으면 그 카드는 뺀다 */
+        var sk = imgEl.parentNode.querySelector('.skel');
+        if(sk) sk.remove();
+        imgEl.src = URL.createObjectURL(b);
+      }).catch(function(){ if(card) card.remove(); });
+  }
+
+  function openBig(path){
+    fetch(URL_+'/storage/v1/object/'+BUCKET+'/'+path, {
+      headers: { apikey: KEY, Authorization: 'Bearer '+KEY }
+    }).then(function(r){ return r.ok ? r.blob() : null; })
+      .then(function(b){ if(b){ boxImg.src = URL.createObjectURL(b); box.classList.add('on'); } });
+  }
+  box.addEventListener('click', function(){ box.classList.remove('on'); boxImg.src=''; });
+
+  function render(data){
+    var name = (data.elder && data.elder.name) || '어르신';
+    var recs = data.records || [];
+    titleEl.textContent = name + ' 어르신의 작품';
+    subEl.textContent = '센터에서 남긴 기록입니다';
+
+    if(!recs.length){
+      state('<div class="big">아직 올라온 작품이 없습니다.</div>' +
+            '<div>곧 채워질 거예요.</div>');
+      return;
+    }
+
+    var html = '<p class="count">모두 ' + recs.length + '점</p>';
+    recs.forEach(function(r, i){
+      var noteHtml = r.note
+        ? '<p class="note">' + esc(r.note) + '</p>'
+        : '<p class="note empty">—</p>';
+      html +=
+        '<div class="card">' +
+          '<button class="ph" data-i="'+i+'" aria-label="작품 크게 보기">' +
+            '<span class="skel"></span>' +
+            '<img alt="'+esc(name)+' 어르신의 작품">' +
+          '</button>' +
+          '<div class="meta">' +
+            '<div class="date">' + esc(humanDate(r.occurred_at)) + '</div>' +
+            noteHtml +
+          '</div>' +
+        '</div>';
+    });
+    viewEl.innerHTML = html;
+
+    /* 썸네일 로드 + 클릭 시 원본 */
+    var imgs = viewEl.querySelectorAll('.card .ph img');
+    imgs.forEach(function(img, i){ loadPhoto(recs[i].thumb_path || recs[i].image_path, img); });
+    viewEl.querySelectorAll('.ph').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        openBig(recs[+btn.dataset.i].image_path);
+      });
+    });
+  }
+
+  /* ── 시작 ── */
+  var t = token();
+  if(!t){ fail('링크가 올바르지 않습니다.'); return; }
+
+  fetch(URL_+'/rest/v1/rpc/get_shared', {
+    method:'POST',
+    headers:{ apikey:KEY, Authorization:'Bearer '+KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify({ p_token: t })
+  }).then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(data){
+      if(!data || !data.elder){ fail('링크가 만료되었거나 올바르지 않습니다.'); return; }
+      render(data);
+    })
+    .catch(function(){ fail('불러오지 못했습니다. 잠시 뒤 다시 열어 주세요.'); });
+})();
+</script>
+</body>
+</html>
