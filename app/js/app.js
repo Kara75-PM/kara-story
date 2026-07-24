@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v18';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v19';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -1058,6 +1058,9 @@
         '누르면 <b>어르신·메모를 고치거나</b> 지울 수 있습니다.'));
     }
 
+    /* 가족에게 보낼 링크 — 로그인(서버) 모드에서만. 체험엔 서버가 없다. */
+    if (Store.backend === 'supa' && S.elders.length) renderShareCard();
+
     /* 🗑 지운 것 */
     if (S.deletedRecords.length) renderTrash();
 
@@ -1071,6 +1074,88 @@
     if (!S.askFeedback) feedbackCard(false);
 
     UI.buttons([]);
+  }
+
+  /* ── 가족에게 보낼 링크 (어르신별) ──────────────────
+   * 서버 모드에서만. 한 어르신의 모든 작품이 링크 하나로 열린다.
+   * 링크는 view.html 이 토큰으로 연다. 폐기하면 목록·사진이 즉시 막힌다. */
+  function shareUrl(token) {
+    /* 지금 페이지가 .../app/index.html 이면 .../app/view.html#t=... */
+    var base = location.origin + location.pathname.replace(/[^/]*$/, '');
+    return base + 'view.html#t=' + token;
+  }
+
+  function renderShareCard() {
+    var c = UI.card();
+    c.appendChild(UI.el('p', 'eyebrow', '가족에게 보내기'));
+    c.appendChild(UI.el('h2', null, '어르신별 링크'));
+    c.appendChild(UI.el('p', 'lede',
+      '작품을 볼 수 있는 <b>링크</b>를 만들어 가족에게 보내세요. ' +
+      '문제가 생기면 <b>폐기</b>할 수 있고, 그러면 링크가 곧바로 막힙니다.'));
+
+    var list = UI.el('div', 'sharelist');
+    S.elders.forEach(function (e) {
+      var row = UI.el('div', 'sharerow');
+      row.appendChild(UI.el('span', 'snm', UI.esc(e.name)));
+
+      var btns = UI.el('div', 'sbtns');
+      if (e.shareToken) {
+        btns.appendChild(shareBtn('링크 복사', function () { copyShareLink(e); }));
+        btns.appendChild(shareBtn('폐기', function () { revokeShareLink(e); }, true));
+      } else {
+        btns.appendChild(shareBtn('가족 링크 만들기', function () { makeShareLink(e); }));
+      }
+      row.appendChild(btns);
+      list.appendChild(row);
+    });
+    c.appendChild(list);
+  }
+
+  function shareBtn(label, fn, danger) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sbtn' + (danger ? ' danger' : '');
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  function makeShareLink(e) {
+    Store.issueShare(e.id).then(function (token) {
+      e.shareToken = token;
+      return copyText(shareUrl(token)).then(function (ok) {
+        UI.say(ok ? '링크를 만들고 복사했습니다 — 가족에게 보내세요'
+                  : '링크를 만들었습니다', { tone: 'ok', ms: 6000 });
+        render();
+      });
+    }).catch(function (err) {
+      UI.say(err.message || '링크를 만들지 못했습니다', { tone: 'warn', ms: 8000 });
+    });
+  }
+
+  function copyShareLink(e) {
+    copyText(shareUrl(e.shareToken)).then(function (ok) {
+      if (ok) UI.say('링크를 복사했습니다 — 가족에게 보내세요', { tone: 'ok', ms: 6000 });
+      else showCopyFallback(shareUrl(e.shareToken));
+    });
+  }
+
+  function revokeShareLink(e) {
+    UI.ask({
+      title: e.name + ' 어르신 링크를 폐기할까요?',
+      body: '지금까지 보낸 링크가 <b>모두 막힙니다.</b> 가족은 더 볼 수 없게 됩니다.<br>' +
+            '다시 보내려면 링크를 새로 만들면 됩니다.',
+      okLabel: '폐기', cancelLabel: '그대로 두기', danger: true, swap: true
+    }).then(function (ok) {
+      if (!ok) return;
+      Store.revokeShare(e.id).then(function () {
+        e.shareToken = null;
+        UI.say('링크를 폐기했습니다', { tone: 'ok' });
+        render();
+      }).catch(function (err) {
+        UI.say(err.message || '폐기하지 못했습니다', { tone: 'warn', ms: 8000 });
+      });
+    });
   }
 
   /* ── 🗑 지운 것 ── */

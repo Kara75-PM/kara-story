@@ -155,6 +155,19 @@
   .signin .q:first-of-type{margin-top:var(--s2)}
   .note .dim{color:var(--muted); font-size:.82rem}
 
+  /* ── 가족에게 보낼 링크 ── */
+  .sharelist{display:flex; flex-direction:column; margin-top:.5rem}
+  .sharerow{display:flex; align-items:center; gap:.5rem; padding:.55rem .1rem;
+    border-bottom:1px solid var(--line)}
+  .sharerow:last-child{border-bottom:none}
+  .snm{flex:1; font-weight:700; font-size:1rem}
+  .sbtns{display:flex; gap:.4rem; flex:none}
+  .sbtn{font:inherit; font-size:.82rem; font-weight:700; cursor:pointer; padding:.42rem .7rem;
+    border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent);
+    border-radius:6px; white-space:nowrap}
+  .sbtn:hover{filter:brightness(.97)}
+  .sbtn.danger{border-color:var(--alert); color:var(--alert); background:transparent}
+
   /* ── 의견 여쭙기 ── */
   .askcard{border-color:var(--accent)}
   .q{margin-top:var(--s3)}
@@ -392,7 +405,7 @@
     <div>
       <h1 class="ttl">그리움</h1>
       <div class="sub">작품 남기기</div>
-      <div class="ver">v18 · 2026-07-25</div>
+      <div class="ver">v19 · 2026-07-25</div>
     </div>
     <div class="sp"></div>
     <span class="chip" id="chip">준비 중</span>
@@ -406,15 +419,15 @@
 <div class="mask" id="mask" role="dialog" aria-modal="true"><div class="dlg" id="dlg"></div></div>
 
 <!-- ?v= 는 캐시 때문에 옛 파일이 남는 것을 막는다. 고칠 때마다 숫자를 올린다. -->
-<script src="js/config.js?v=18"></script>
-<script src="js/model.js?v=18"></script>
-<script src="js/sample.js?v=18"></script>
-<script src="js/supa.js?v=18"></script>
-<script src="js/store-idb.js?v=18"></script>
-<script src="js/store-supa.js?v=18"></script>
-<script src="js/store.js?v=18"></script>
-<script src="js/image.js?v=18"></script>
-<script src="js/ui.js?v=18"></script>
-<script src="js/app.js?v=18"></script>
+<script src="js/config.js?v=19"></script>
+<script src="js/model.js?v=19"></script>
+<script src="js/sample.js?v=19"></script>
+<script src="js/supa.js?v=19"></script>
+<script src="js/store-idb.js?v=19"></script>
+<script src="js/store-supa.js?v=19"></script>
+<script src="js/store.js?v=19"></script>
+<script src="js/image.js?v=19"></script>
+<script src="js/ui.js?v=19"></script>
+<script src="js/app.js?v=19"></script>
 </body>
 </html>

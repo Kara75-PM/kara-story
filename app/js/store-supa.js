@@ -29,6 +29,7 @@
     return {
       id: r.id, name: r.name, birthYear: r.birth_year,
       centerId: r.center_id, note: r.note, active: r.active !== false,
+      shareToken: r.share_token || null,   /* 가족 링크가 살아있으면 토큰이 있다 */
       createdAt: r.created_at, updatedAt: r.updated_at
     };
   }
@@ -150,6 +151,22 @@
       method: 'PATCH', body: JSON.stringify({ active: false }),
       headers: { Prefer: 'return=representation' }
     }).then(function (rows) { return elderToApp((rows || [])[0]); });
+  }
+
+  /* ── 가족 링크 ──────────────────────────────────── */
+  /* 서버 함수를 부른다. 토큰 발급/폐기는 「내 센터 어르신만」을
+     함수 안에서 검증한다 (issue_share/revoke_share). */
+
+  function issueShare(elderId) {
+    return Supa.rest('rpc/issue_share', {
+      method: 'POST', body: JSON.stringify({ p_elder: elderId })
+    });   /* → 토큰 문자열 */
+  }
+
+  function revokeShare(elderId) {
+    return Supa.rest('rpc/revoke_share', {
+      method: 'POST', body: JSON.stringify({ p_elder: elderId })
+    }).then(function () { return true; });
   }
 
   /* ── 기록 ───────────────────────────────────────── */
@@ -294,6 +311,8 @@
     getElder: getElder,
     saveElder: saveElder,
     removeElder: removeElder,
+    issueShare: issueShare,
+    revokeShare: revokeShare,
     listRecords: listRecords,
     getRecord: getRecord,
     saveRecord: saveRecord,

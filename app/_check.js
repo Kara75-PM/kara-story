@@ -74,7 +74,7 @@ for (const [ns, names] of Object.entries(api)) {
 /* 저장소 구현이 계약을 다 지키는지.
    use·backend 는 고르는 층(store.js) 자체의 것이고,
    center 는 supa 전용 선택 메서드(idb 엔 없어도 Store.center 가 위임으로 처리) — 계약 필수 아님. */
-const STORE_OPTIONAL = new Set(['use', 'backend', 'center']);
+const STORE_OPTIONAL = new Set(['use', 'backend', 'center', 'issueShare', 'revokeShare']);
 for (const [name, names] of Object.entries(impls)) {
   if (!names) { console.log('· ' + name + ' 아직 없음 (건너뜀)'); continue; }
   const missing = [...api.Store].filter(m => !STORE_OPTIONAL.has(m) && !names.has(m));

@@ -78,7 +78,23 @@
     return (cur && typeof cur.center === 'function') ? cur.center() : null;
   }
 
-  var Store = { backend: null, use: use, ready: ready, center: center };
+  /* 가족 링크 — 서버(supa)에만 있다. 체험(idb)에서 부르면 막는다.
+     화면 코드가 StoreSupa 를 직접 부르지 않도록 여기서 위임한다. */
+  function issueShare(elderId) {
+    if (!cur || typeof cur.issueShare !== 'function') {
+      return Promise.reject(new Error('로그인한 뒤에 가족 링크를 만들 수 있습니다.'));
+    }
+    return cur.issueShare(elderId);
+  }
+  function revokeShare(elderId) {
+    if (!cur || typeof cur.revokeShare !== 'function') {
+      return Promise.reject(new Error('로그인한 뒤에 폐기할 수 있습니다.'));
+    }
+    return cur.revokeShare(elderId);
+  }
+
+  var Store = { backend: null, use: use, ready: ready, center: center,
+                issueShare: issueShare, revokeShare: revokeShare };
 
   METHODS.forEach(function (m) {
     Store[m] = function () {
