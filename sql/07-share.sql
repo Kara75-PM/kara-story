@@ -19,7 +19,9 @@ set search_path = public
 as $$
 declare t text;
 begin
-  t := encode(gen_random_bytes(24), 'hex');   -- 48자 16진 = 추측 불가
+  -- 추측 불가한 토큰. gen_random_bytes(pgcrypto)는 함수의 search_path(public)에서
+  -- 안 보이므로, 어디서나 되는 gen_random_uuid 둘을 이어 붙인다 (64자 16진).
+  t := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
   update public.elders
      set share_token = t, updated_at = now()
    where id = p_elder and center_id = public.my_center_id() and active;  -- 내린 어르신엔 발급 안 함
