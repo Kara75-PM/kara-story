@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v17';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v18';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -101,8 +101,13 @@
       .then(refreshData)
       .then(function () {
         /* 처음 오신 분에게는 여기가 뭘 하는 곳인지 먼저 알린다.
-           맥락 없이 화면부터 뜨면 무엇을 올려야 하는지 알 수 없다. */
-        if (!recalled(SEEN_KEY) && !S.todayRecords.length) S.screen = 'intro';
+           맥락 없이 화면부터 뜨면 무엇을 올려야 하는지 알 수 없다.
+           단 로그인(서버 저장) 상태면 인트로를 띄우지 않는다 —
+           인트로는 "이 기기 밖으로 안 나간다"고 말하는데 서버 저장 중엔 거짓이다.
+           (테스트 마스터가 잡은 것, 2026-07-25) */
+        if (Store.backend !== 'supa' && !recalled(SEEN_KEY) && !S.todayRecords.length) {
+          S.screen = 'intro';
+        }
         render();   /* render 가 칩을 세운다 */
       })
       .catch(function (e) {
