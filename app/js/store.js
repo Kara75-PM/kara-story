@@ -54,10 +54,13 @@
   var cur = null;
 
   /* 저장소를 고른다. 로그인하면 'supa', 나가면 'idb' 로 돌아온다.
-     화면이 이미 그려진 뒤에도 바꿀 수 있어야 하므로 함수로 둔다. */
+     화면이 이미 그려진 뒤에도 바꿀 수 있어야 하므로 함수로 둔다.
+     저장소를 바꿀 때 이전 저장소가 잡고 있던 것(로그인 캐시 등)을 놓게 한다 —
+     화면 코드가 forget() 을 직접 부르지 않도록 여기서 흡수한다. */
   function use(name) {
     var next = impl(name);
     if (!next) return Promise.reject(new Error('저장소를 찾지 못했습니다: ' + name));
+    if (cur && cur !== next && typeof cur.forget === 'function') cur.forget();
     cur = next;
     Store.backend = next.backend;
     return next.ready();
@@ -69,7 +72,13 @@
     return cur.ready();
   }
 
-  var Store = { backend: null, use: use, ready: ready };
+  /* 지금 어느 센터로 들어와 있는지 (칩 표시용). 저장소마다 다르므로 위임한다.
+     체험(idb)에는 센터가 없으니 null. */
+  function center() {
+    return (cur && typeof cur.center === 'function') ? cur.center() : null;
+  }
+
+  var Store = { backend: null, use: use, ready: ready, center: center };
 
   METHODS.forEach(function (m) {
     Store[m] = function () {

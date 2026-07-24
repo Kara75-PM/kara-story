@@ -65,7 +65,7 @@
      사용자 제안: 그냥 누르라고만 하지 말고 「로그인/로그아웃」을 붙여 준다. */
   function markBackend(tappable) {
     if (Store.backend === 'supa') {
-      var c = (StoreSupa.center && StoreSupa.center()) || '';
+      var c = Store.center() || '';
       UI.setChip((c ? c + ' · ' : '') + '서버에 저장 · 로그아웃', 'ok',
         tappable ? signOutNow : null);
     } else {
@@ -602,10 +602,10 @@
           busy = false;
           /* 로그인은 됐는데 센터가 없는 경우도 여기로 온다.
              그때는 서버 저장소를 쓸 수 없으니 체험 모드로 되돌린다.
+             (서버 저장소가 잡고 있던 것은 Store.use('idb') 가 놓게 한다)
              ⚠️ .then(markBackend) 로 넘기면 Promise 결과가 tappable 인자로
                 들어가 칩이 잘못 눌린다. 반드시 함수로 감싼다. */
           Supa.signOut();
-          StoreSupa.forget();
           Store.use('idb').then(function () { markBackend(chipTappable()); });
           UI.say(err.message || '로그인하지 못했습니다', { tone: 'warn', ms: 9000 });
           pw.focus();
@@ -628,8 +628,7 @@
     }).then(function (ok) {
       if (!ok) return;
       return Supa.signOut().then(function () {
-        StoreSupa.forget();
-        return Store.use('idb');
+        return Store.use('idb');   /* 서버 저장소가 잡고 있던 것은 use 가 놓는다 */
       }).then(function () {
         S.screen = 'home';
         return refreshData();

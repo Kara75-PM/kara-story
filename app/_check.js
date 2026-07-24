@@ -71,10 +71,13 @@ for (const [ns, names] of Object.entries(api)) {
   if (!names) { console.log('✗ ' + ns + ' 내보내기 목록을 찾지 못함'); bad++; continue; }
   console.log('· ' + ns + ' 제공: ' + [...names].sort().join(', '));
 }
-/* 저장소 구현이 계약을 다 지키는지 */
+/* 저장소 구현이 계약을 다 지키는지.
+   use·backend 는 고르는 층(store.js) 자체의 것이고,
+   center 는 supa 전용 선택 메서드(idb 엔 없어도 Store.center 가 위임으로 처리) — 계약 필수 아님. */
+const STORE_OPTIONAL = new Set(['use', 'backend', 'center']);
 for (const [name, names] of Object.entries(impls)) {
   if (!names) { console.log('· ' + name + ' 아직 없음 (건너뜀)'); continue; }
-  const missing = [...api.Store].filter(m => m !== 'use' && m !== 'backend' && !names.has(m));
+  const missing = [...api.Store].filter(m => !STORE_OPTIONAL.has(m) && !names.has(m));
   if (missing.length) {
     console.log('✗ ' + name + ' 에 빠진 계약: ' + missing.join(', '));
     bad++;
@@ -93,6 +96,16 @@ for (const [who, src] of Object.entries(callers)) {
     const key = m[1] + '.' + m[2];
     if (seen.has(key)) continue;
     seen.add(key);
+
+    /* 🔑 경계 검사: 화면 코드(app.js)는 저장소 구현(StoreIdb/StoreSupa)을
+       직접 부르면 안 된다. Store 층만 거쳐야 갈아끼울 수 있다.
+       (v13 칩 사고 뒤에도 center/forget 이 이 경계를 넘어 있었다) */
+    if (who === 'app' && (m[1] === 'StoreIdb' || m[1] === 'StoreSupa')) {
+      console.log('✗ app.js 가 ' + key + ' 를 직접 부른다 — Store 층을 거쳐야 한다 (경계 위반)');
+      bad++;
+      continue;
+    }
+
     const names = api[m[1]];
     if (names && !names.has(m[2])) {
       console.log('✗ ' + who + '.js 에서 ' + key + ' 를 부르는데 ' + m[1] + ' 에 없음');
