@@ -282,6 +282,10 @@
   /* ── 단계 ── */
   var STEPS = ["intro","q0","group","explain","after","end","done"];
   var step = 0;
+  var SKEY = "geurium_survey_v1";
+  function saveA(){ try{ localStorage.setItem(SKEY, JSON.stringify({A:A, step:step})); }catch(e){} }
+  function loadA(){ try{ var s=localStorage.getItem(SKEY); if(!s) return; var o=JSON.parse(s)||{}; if(o.A){ for(var k in o.A){ if(Object.prototype.hasOwnProperty.call(o.A,k)) A[k]=o.A[k]; } } if(typeof o.step==="number" && o.step>=0 && o.step<STEPS.length) step=o.step; }catch(e){} }
+  function clearA(){ try{ localStorage.removeItem(SKEY); }catch(e){} }
   function cur(){ return STEPS[step]; }
   function progress(){
     var shown = ["q0","group","explain","after","end"];
@@ -302,7 +306,7 @@
       if(!item.long) inp.type="text";
       inp.value = A[item.id]||"";
       inp.placeholder = "여기에 적어주세요 (안 쓰셔도 됩니다)";
-      inp.addEventListener("input", function(e){ A[item.id]=e.target.value; });
+      inp.addEventListener("input", function(e){ A[item.id]=e.target.value; saveA(); });
       box.appendChild(inp);
     } else {
       var opts = el("div","opts");
@@ -323,6 +327,7 @@
             A[item.id]=label;
             if(Array.isArray(o)) A._g=o[1];
           }
+          saveA();
           render();
         }
         b.addEventListener("click",pick);
@@ -699,8 +704,8 @@
       footin.appendChild(n);
     });
   }
-  function next(){ if(step<STEPS.length-1){ step++; render(); window.scrollTo({top:0,behavior:"smooth"}); } }
-  function prev(){ if(step>0){ step--; render(); window.scrollTo({top:0,behavior:"smooth"}); } }
+  function next(){ if(step<STEPS.length-1){ step++; saveA(); render(); window.scrollTo({top:0,behavior:"smooth"}); } }
+  function prev(){ if(step>0){ step--; saveA(); render(); window.scrollTo({top:0,behavior:"smooth"}); } }
 
   /* ── 화면 ── */
   function render(){
@@ -775,9 +780,9 @@
       var txt=summarize();
       view.appendChild(el("div","result",esc(txt)));
       view.appendChild(el("div","skip","자동으로 전송되지 않습니다. 복사해서 직접 보내주셔야 합니다. 복사가 안 되면 위 내용을 길게 눌러 직접 선택해 주세요."));
-      foot([{label:"처음부터",fn:function(){ A={}; step=0; persp="site"; buildList(); sidx=0; render(); },ghost:true},
+      foot([{label:"처음부터",fn:function(){ A={}; step=0; persp="site"; buildList(); sidx=0; clearA(); render(); },ghost:true},
             {label:"답변 복사하기",fn:function(){
-              copyText(txt).then(function(){ showToast("복사되었습니다 — 붙여넣어 주세요"); },
+              copyText(txt).then(function(){ clearA(); showToast("복사되었습니다 — 붙여넣어 주세요"); },
                                  function(){ showToast("복사 실패 — 위 내용을 직접 선택해 주세요"); });
             }}]);
       return;
@@ -785,6 +790,7 @@
   }
 
   buildList();
+  loadA();
   render();
 })();
 </script>
