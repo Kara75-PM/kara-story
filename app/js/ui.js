@@ -39,11 +39,27 @@
 
   function clear() { view.innerHTML = ''; foot.innerHTML = ''; }
 
-  function setChip(text, tone) {
+  /* onClick 을 주면 칩이 버튼이 된다.
+     지금 어디에 저장되는지(상태)와 들어가고 나가는 길(행동)을 한자리에 둔다. */
+  function setChip(text, tone, onClick) {
     chip.textContent = text;
     chip.style.background = tone === 'ok'   ? 'var(--ok-soft)'
                           : tone === 'warn' ? 'var(--alert-soft)'
                           : 'var(--surface-2)';
+    chip.onclick = onClick || null;
+    if (onClick) {
+      chip.setAttribute('role', 'button');
+      chip.tabIndex = 0;
+      chip.classList.add('tap');
+      chip.onkeydown = function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+      };
+    } else {
+      chip.removeAttribute('role');
+      chip.removeAttribute('tabindex');
+      chip.classList.remove('tap');
+      chip.onkeydown = null;
+    }
   }
 
   function card(host) {

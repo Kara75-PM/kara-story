@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v10';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v20';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -59,21 +59,56 @@
 
   /* ── 시작 ─────────────────────────────────────── */
 
+  /* 상단 칩 — 지금 어디에 저장되는지 + 들어가고 나가는 길.
+     「내가 올린 게 가족에게 가는가」를 직원이 항상 알아야 하고,
+     그걸 보는 자리에서 바로 바꿀 수 있어야 한다.
+     사용자 제안: 그냥 누르라고만 하지 말고 「로그인/로그아웃」을 붙여 준다. */
+  function markBackend(tappable) {
+    if (Store.backend === 'supa') {
+      var c = Store.center() || '';
+      UI.setChip((c ? c + ' · ' : '') + '서버에 저장 · 로그아웃', 'ok',
+        tappable ? signOutNow : null);
+    } else {
+      UI.setChip('이 기기에만 저장 · 로그인', 'info',
+        tappable ? function () { S.screen = 'signin'; render(); } : null);
+    }
+  }
+
+  /* 칩을 눌러 로그인·로그아웃하는 것은 「홈 계열」에서만 허용한다.
+     큐(사진 편집)·로그인 화면에서 누르면 하던 작업이 통째로 날아간다. */
+  function chipTappable() {
+    return S.screen === 'home' || S.screen === 'feedback' || S.screen === 'intro';
+  }
+
   function boot() {
     UI.init();
     UI.setChip('여는 중…');
-    Store.ready()
+
+    /* 로그인해 둔 적이 있으면 서버로, 아니면 체험 모드로 연다.
+       서버 쪽이 안 되면(계정 중지·센터 미지정 등) 체험 모드로 물러난다 —
+       앱이 아예 안 열리는 것보다 낫다. */
+    var want = (global.Supa && Supa.signedIn()) ? 'supa' : 'idb';
+    Store.use(want)
+      .catch(function (e) {
+        if (want !== 'supa') throw e;
+        UI.say(e.message || '서버에 연결하지 못했습니다', { tone: 'warn', ms: 9000 });
+        return Store.use('idb');
+      })
       /* 지운 지 오래된 것을 조용히 정리한다. 실패해도 앱은 계속 돈다. */
       .then(function () {
         return Store.purgeExpired(TRASH_DAYS).catch(function () { return 0; });
       })
       .then(refreshData)
       .then(function () {
-        UI.setChip('브라우저에 저장 중', 'ok');
         /* 처음 오신 분에게는 여기가 뭘 하는 곳인지 먼저 알린다.
-           맥락 없이 화면부터 뜨면 무엇을 올려야 하는지 알 수 없다. */
-        if (!recalled(SEEN_KEY) && !S.todayRecords.length) S.screen = 'intro';
-        render();
+           맥락 없이 화면부터 뜨면 무엇을 올려야 하는지 알 수 없다.
+           단 로그인(서버 저장) 상태면 인트로를 띄우지 않는다 —
+           인트로는 "이 기기 밖으로 안 나간다"고 말하는데 서버 저장 중엔 거짓이다.
+           (테스트 마스터가 잡은 것, 2026-07-25) */
+        if (Store.backend !== 'supa' && !recalled(SEEN_KEY) && !S.todayRecords.length) {
+          S.screen = 'intro';
+        }
+        render();   /* render 가 칩을 세운다 */
       })
       .catch(function (e) {
         UI.setChip('저장소 오류', 'warn');
@@ -90,11 +125,13 @@
     return Promise.all([
       Store.listElders(),
       Store.listRecords({ occurredAt: Model.todayLocal() }),
-      Store.listRecords({ deleted: true })
+      Store.listRecords({ deleted: true }),
+      Store.listRecords({})            /* 전부 — 「지금까지 쌓인 것」용 */
     ]).then(function (r) {
       S.elders = r[0];
       S.todayRecords = r[1];
       S.deletedRecords = r[2];
+      S.allRecords = r[3] || [];
     });
   }
 
@@ -207,18 +244,18 @@
     var item = S.queue[S.idx];
     if (!item || item.prepared) { render(); return; }
 
-    UI.setChip('사진 읽는 중…');
+    /* 칩은 「저장 위치 + 로그인/로그아웃」 전용이다.
+       읽는 중·저장 중 같은 진행 상태를 칩에 쓰지 않는다 —
+       화면(버튼)이 이미 진행을 말한다. */
     Img.prepare(item.file)
       .then(function (prep) {
         item.prepared = prep;
         refreshView(item);
         if (!item.stripUrl) item.stripUrl = item.viewUrl;
-        UI.setChip('브라우저에 저장 중', 'ok');
         render();
       })
       .catch(function (e) {
         item.error = (e && e.message) || '사진을 읽지 못했습니다';
-        UI.setChip('브라우저에 저장 중', 'ok');
         render();
       });
   }
@@ -295,8 +332,7 @@
     if (!item.elderId) { UI.say('어느 어르신 것인지 골라주세요', { tone: 'warn' }); return; }
 
     item.saving = true;
-    render();
-    UI.setChip('저장 중…');
+    render();   /* 저장 버튼이 「저장 중…」으로 바뀐다 */
 
     var crop = { top: item.cropTop, bottom: item.cropBottom };
     var rec = Model.makeRecord({
@@ -321,8 +357,8 @@
         item.saving = false;
         Img.dispose(item.prepared);
         item.prepared = null;
-        UI.setChip('브라우저에 저장 중', 'ok');
-        /* 알리지 않는다 — 썸네일에 ✓ 가 뜨고 다음 장으로 넘어가는 것이 이미 답이다 */
+        /* 알리지 않는다 — 썸네일에 ✓ 가 뜨고 다음 장으로 넘어가는 것이 이미 답이다.
+           칩도 안 건드린다 — 저장 위치는 그대로다 */
         return refreshData();
       })
       .then(function () {
@@ -343,7 +379,7 @@
       .catch(function (e) {
         item.saving = false;
         item.error = (e && e.message) || '저장하지 못했습니다';
-        UI.setChip('저장 실패', 'warn');
+        UI.say(item.error, { tone: 'warn', ms: 8000 });
         render();
       });
   }
@@ -485,6 +521,9 @@
 
   function render() {
     UI.clear();
+    /* 칩은 화면마다 다시 세운다 — 홈 계열에서만 눌러서 로그인/로그아웃한다 */
+    markBackend(chipTappable());
+    if (S.screen === 'signin')   return renderSignIn();
     if (S.screen === 'intro')    return renderIntro();
     if (S.screen === 'home')     return renderHome();
     if (S.screen === 'queue')    return renderQueue();
@@ -504,6 +543,102 @@
         UI.say('견본을 만들지 못했습니다', { tone: 'warn' });
         render();
       });
+  }
+
+  /* ── 센터 직원 로그인 ─────────────────────────────
+   *
+   * 가입 화면은 없다. 계정은 센터가 만들어 준다.
+   * 직원이 우리 앱에 스스로 가입할 이유가 없고, 그래야 아무나 못 들어온다.
+   * (Supabase 기본 메일이 시간당 2통이라 확인 메일에 기댈 수도 없다) */
+  function renderSignIn() {
+    var c = UI.card();
+    c.appendChild(UI.el('p', 'eyebrow', '센터 직원'));
+    c.appendChild(UI.el('h2', null, '로그인'));
+    c.appendChild(UI.el('p', 'lede',
+      '로그인하시면 올린 작품이 <b>서버에 저장되어 가족에게 갑니다.</b><br>' +
+      '계정은 센터에서 만들어 드립니다.'));
+
+    var form = document.createElement('form');
+    form.className = 'signin';
+
+    function field(label, type, name, hint) {
+      var w = UI.el('div', 'q');
+      w.appendChild(UI.el('p', 'qt', label));
+      if (hint) w.appendChild(UI.el('p', 'qh', hint));
+      var i = document.createElement('input');
+      i.type = type; i.name = name; i.className = 'memo';
+      i.autocomplete = (type === 'password') ? 'current-password' : 'username';
+      i.required = true;
+      w.appendChild(i);
+      form.appendChild(w);
+      return i;
+    }
+
+    var email = field('이메일', 'email', 'email');
+    var pw    = field('비밀번호', 'password', 'password');
+    c.appendChild(form);
+
+    var busy = false;
+    function go(e) {
+      if (e) e.preventDefault();
+      if (busy) return;
+      if (!email.value.trim() || !pw.value) {
+        UI.say('이메일과 비밀번호를 넣어주세요', { tone: 'warn' });
+        (email.value.trim() ? pw : email).focus();
+        return;
+      }
+      busy = true;
+      UI.setChip('로그인 중…');
+      Supa.signIn(email.value, pw.value)
+        .then(function () { return Store.use('supa'); })
+        .then(function () {
+          pw.value = '';
+          S.screen = 'home';
+          return refreshData();
+        })
+        .then(function () {
+          render();   /* render 가 칩을 「서버에 저장 · 로그아웃」으로 세운다 */
+          UI.say('로그인했습니다', { tone: 'ok', ms: 5000 });
+        })
+        .catch(function (err) {
+          busy = false;
+          /* 로그인은 됐는데 센터가 없는 경우도 여기로 온다.
+             그때는 서버 저장소를 쓸 수 없으니 체험 모드로 되돌린다.
+             (서버 저장소가 잡고 있던 것은 Store.use('idb') 가 놓게 한다)
+             ⚠️ .then(markBackend) 로 넘기면 Promise 결과가 tappable 인자로
+                들어가 칩이 잘못 눌린다. 반드시 함수로 감싼다. */
+          Supa.signOut();
+          Store.use('idb').then(function () { markBackend(chipTappable()); });
+          UI.say(err.message || '로그인하지 못했습니다', { tone: 'warn', ms: 9000 });
+          pw.focus();
+        });
+    }
+
+    form.addEventListener('submit', go);
+    UI.buttons([
+      { label: '← 돌아가기', ghost: true, fn: function () { S.screen = 'home'; render(); } },
+      { label: '로그인', fn: go }
+    ]);
+    setTimeout(function () { email.focus(); }, 0);
+  }
+
+  function signOutNow() {
+    UI.ask({
+      title: '로그아웃할까요?',
+      body: '이 기기에서 로그아웃합니다. 올린 기록은 서버에 그대로 남습니다.',
+      okLabel: '로그아웃', cancelLabel: '그대로 두기'
+    }).then(function (ok) {
+      if (!ok) return;
+      return Supa.signOut().then(function () {
+        return Store.use('idb');   /* 서버 저장소가 잡고 있던 것은 use 가 놓는다 */
+      }).then(function () {
+        S.screen = 'home';
+        return refreshData();
+      }).then(function () {
+        render();   /* render 가 칩을 「이 기기에만 저장 · 로그인」으로 세운다 */
+        UI.say('로그아웃했습니다', { tone: 'ok' });
+      });
+    });
   }
 
   /* ── 처음 오신 분께 — 조작도 스크롤도 없는 한 화면 ── */
@@ -786,7 +921,6 @@
     ]);
   }
 
-  /* ── 홈 ── */
   /* 의견을 여쭙는 칸. 한 바퀴 돌고 난 직후에는 맨 위로 올린다. */
   function feedbackCard(highlight) {
     var c = UI.card();
@@ -926,28 +1060,184 @@
         '누르면 <b>어르신·메모를 고치거나</b> 지울 수 있습니다.'));
     }
 
+    /* 지금까지 쌓인 것 — 체험 모드에서만.
+       직원 화면에서 누적 통계를 뺀 결정(2026-07-24)은 그대로 둔다.
+       다만 체험하는 분(자녀)에게는 「쌓인다」가 이 제품의 전부라,
+       다음 날 열었을 때 빈 화면이면 앱이 데이터를 잃은 것처럼 보인다. */
+    if (Store.backend === 'idb') renderPast();
+
+    /* 가족에게 보낼 링크 — 로그인(서버) 모드에서만. 체험엔 서버가 없다.
+       CONFIG.shareEnabled 가 false 면 발급 화면을 아예 안 그린다(보안 잠금). */
+    if (Store.backend === 'supa' && S.elders.length) {
+      /* 보안 잠금이라 기본값은 「닫힘」이다 — CONFIG 가 없거나 키가 사라져도 안 열린다.
+         (=== false 로 두면 설정이 빠졌을 때 발급 카드가 열리는 fail-open 이 된다) */
+      if (!window.CONFIG || CONFIG.shareEnabled !== true) renderShareLocked();
+      else renderShareCard();
+    }
+
     /* 🗑 지운 것 */
     if (S.deletedRecords.length) renderTrash();
 
-    /* 전체 현황 */
-    Store.stats().then(function (s) {
-      var c3 = UI.card();
-      c3.appendChild(UI.el('p', 'eyebrow', '지금까지'));
-      var st2 = UI.el('div', 'stat');
-      st2.appendChild(UI.el('span', null, '어르신 ' + s.elders + '분'));
-      st2.appendChild(UI.el('span', null, '기록 ' + s.records + '장'));
-      st2.appendChild(UI.el('span', null, Img.humanSize(s.bytes)));
-      c3.appendChild(st2);
-      c3.appendChild(UI.el('div', 'note',
-        '지금은 <b>이 브라우저 안에만</b> 저장됩니다. ' +
-        '다른 기기나 가족에게는 아직 보이지 않습니다.'));
-    });
+    /* 「지금까지」 누적 통계와 저장위치 설명은 없앴다.
+       - 누적 통계는 관리자 리포트지 직원의 일상 업무가 아니다
+       - 저장 위치는 상단 고정 칩이 항상 보여준다
+       (사용자 결정, 2026-07-24) */
 
     /* 아직 의견을 안 주신 분께는 맨 아래에도 길을 둔다.
        위쪽 카드는 한 바퀴 돈 직후에만 뜬다. */
     if (!S.askFeedback) feedbackCard(false);
 
     UI.buttons([]);
+  }
+
+  /* ── 지금까지 쌓인 것 (체험 모드 전용) ──────────────
+   * 오늘이 아닌 날의 기록을 보여준다. 하루만 써 보고 끝나는 게 아니라
+   * 「쌓인다」가 눈에 보여야 이 제품의 값이 전달된다. */
+  function humanDay(s) {
+    var p = String(s || '').split('-');
+    if (p.length !== 3) return s || '';
+    return Number(p[1]) + '월 ' + Number(p[2]) + '일';
+  }
+
+  function renderPast() {
+    var today = Model.todayLocal();
+    var past = (S.allRecords || []).filter(function (r) { return r.occurredAt !== today; });
+    if (!past.length) return;                 /* 오늘치뿐이면 아예 안 그린다 */
+
+    var days = {};
+    past.forEach(function (r) { days[r.occurredAt] = true; });
+
+    var c = UI.card();
+    c.appendChild(UI.el('p', 'eyebrow', '지금까지 쌓인 것'));
+
+    var st = UI.el('div', 'stat');
+    st.appendChild(UI.el('span', null, past.length + '장'));
+    st.appendChild(UI.el('span', null, Object.keys(days).length + '일치'));
+    c.appendChild(st);
+
+    var SHOW = 12;                            /* 너무 길어지지 않게 최근 것만 */
+    var shown = past.slice(0, SHOW);
+
+    var g = UI.el('div', 'grid');
+    shown.forEach(function (r) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'item';
+      var im = document.createElement('img');
+      im.alt = elderName(r.elderId) + ' 어르신의 작품 (' + humanDay(r.occurredAt) + ')';
+      b.appendChild(im);
+      var cap = UI.el('div', 'cap');
+      cap.appendChild(UI.el('div', 'nm', UI.esc(elderName(r.elderId))));
+      cap.appendChild(UI.el('div', 'mm', UI.esc(humanDay(r.occurredAt))));
+      b.appendChild(cap);
+      b.addEventListener('click', function () { openEdit(r); });
+      g.appendChild(b);
+
+      Store.getThumb(r.id).then(function (blob) {
+        if (blob) im.src = URL.createObjectURL(blob);
+      });
+    });
+    c.appendChild(g);
+
+    c.appendChild(UI.el('div', 'note',
+      past.length > SHOW
+        ? '최근 <b>' + SHOW + '장</b>만 보여드립니다. 전부 <b>' + past.length + '장</b> 남아 있습니다.'
+        : '이 기기에 그대로 남아 있습니다.'));
+  }
+
+  /* ── 가족에게 보낼 링크 (어르신별) ──────────────────
+   * 서버 모드에서만. 한 어르신의 모든 작품이 링크 하나로 열린다.
+   * 링크는 view.html 이 토큰으로 연다. 폐기하면 목록·사진이 즉시 막힌다. */
+  function shareUrl(token) {
+    /* 지금 페이지가 .../app/index.html 이면 .../app/view.html#t=... */
+    var base = location.origin + location.pathname.replace(/[^/]*$/, '');
+    return base + 'view.html#t=' + token;
+  }
+
+  /* 공유 잠금 안내 — 직원이 "왜 없지?" 하지 않게 이유를 화면에 적는다.
+     CONFIG.shareEnabled 를 true 로 되돌리면 이 카드는 사라진다. */
+  function renderShareLocked() {
+    var c = UI.card();
+    c.appendChild(UI.el('p', 'eyebrow', '가족에게 보내기'));
+    c.appendChild(UI.el('h2', null, '지금은 잠겨 있습니다'));
+    c.appendChild(UI.el('p', 'lede',
+      '가족에게 보내는 <b>링크 발급을 잠시 멈춰두었습니다.</b> ' +
+      '사진이 링크 없이도 열릴 수 있는 문제를 발견해, <b>안전하게 고치는 동안</b> 닫아둡니다.'));
+    c.appendChild(UI.el('div', 'note',
+      '올리기와 저장은 그대로 됩니다. 고쳐지면 이 자리에 링크 만들기가 다시 나타납니다.'));
+  }
+
+  function renderShareCard() {
+    var c = UI.card();
+    c.appendChild(UI.el('p', 'eyebrow', '가족에게 보내기'));
+    c.appendChild(UI.el('h2', null, '어르신별 링크'));
+    c.appendChild(UI.el('p', 'lede',
+      '작품을 볼 수 있는 <b>링크</b>를 만들어 가족에게 보내세요. ' +
+      '문제가 생기면 <b>폐기</b>할 수 있고, 그러면 링크가 곧바로 막힙니다.'));
+
+    var list = UI.el('div', 'sharelist');
+    S.elders.forEach(function (e) {
+      var row = UI.el('div', 'sharerow');
+      row.appendChild(UI.el('span', 'snm', UI.esc(e.name)));
+
+      var btns = UI.el('div', 'sbtns');
+      if (e.shareToken) {
+        btns.appendChild(shareBtn('링크 복사', function () { copyShareLink(e); }));
+        btns.appendChild(shareBtn('폐기', function () { revokeShareLink(e); }, true));
+      } else {
+        btns.appendChild(shareBtn('가족 링크 만들기', function () { makeShareLink(e); }));
+      }
+      row.appendChild(btns);
+      list.appendChild(row);
+    });
+    c.appendChild(list);
+  }
+
+  function shareBtn(label, fn, danger) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sbtn' + (danger ? ' danger' : '');
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  function makeShareLink(e) {
+    Store.issueShare(e.id).then(function (token) {
+      e.shareToken = token;
+      return copyText(shareUrl(token)).then(function (ok) {
+        UI.say(ok ? '링크를 만들고 복사했습니다 — 가족에게 보내세요'
+                  : '링크를 만들었습니다', { tone: 'ok', ms: 6000 });
+        render();
+      });
+    }).catch(function (err) {
+      UI.say(err.message || '링크를 만들지 못했습니다', { tone: 'warn', ms: 8000 });
+    });
+  }
+
+  function copyShareLink(e) {
+    copyText(shareUrl(e.shareToken)).then(function (ok) {
+      if (ok) UI.say('링크를 복사했습니다 — 가족에게 보내세요', { tone: 'ok', ms: 6000 });
+      else showCopyFallback(shareUrl(e.shareToken));
+    });
+  }
+
+  function revokeShareLink(e) {
+    UI.ask({
+      title: e.name + ' 어르신 링크를 폐기할까요?',
+      body: '지금까지 보낸 링크가 <b>모두 막힙니다.</b> 가족은 더 볼 수 없게 됩니다.<br>' +
+            '다시 보내려면 링크를 새로 만들면 됩니다.',
+      okLabel: '폐기', cancelLabel: '그대로 두기', danger: true, swap: true
+    }).then(function (ok) {
+      if (!ok) return;
+      Store.revokeShare(e.id).then(function () {
+        e.shareToken = null;
+        UI.say('링크를 폐기했습니다', { tone: 'ok' });
+        render();
+      }).catch(function (err) {
+        UI.say(err.message || '폐기하지 못했습니다', { tone: 'warn', ms: 8000 });
+      });
+    });
   }
 
   /* ── 🗑 지운 것 ── */

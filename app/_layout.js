@@ -61,6 +61,13 @@
     wrap.style.paddingBottom = keep;
     var after = document.documentElement.scrollHeight;
 
+    /* 내용이 화면보다 짧으면 문서 높이가 화면 높이로 고정돼, 여백을 줘도 안 늘어난다.
+       그때는 하단 버튼이 덮을 내용 자체가 없으므로 검사 대상이 아니다.
+       (2026-07-28 — 이 오탐 때문에 멀쩡한 시작 화면이 ❌ 로 나왔다) */
+    if (bare <= global.innerHeight && wrap.scrollHeight <= global.innerHeight) {
+      return { skip: '내용이 화면보다 짧아 덮일 것이 없음' };
+    }
+
     return {
       이름: '아래 여백이 문서 높이를 실제로 늘린다',
       여백없을때: bare, 여백줬을때: after,

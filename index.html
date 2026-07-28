@@ -659,6 +659,12 @@
     a.className = "more"; a.href = "story.html";
     a.textContent = "더 자세한 화면이 궁금하시면 여기를 눌러주세요 (선택)";
     host.appendChild(a);
+
+    /* 실제 앱으로 가는 유일한 진입점 — 이게 없으면 아무도 앱에 못 닿는다 */
+    var b = document.createElement("a");
+    b.className = "more"; b.href = "app/index.html";   /* 폴더가 아니라 파일로 — file:// 로 열어도 되게 */
+    b.textContent = "직접 만져보시겠어요? 실제 앱 열기 (사진이 없어도 견본으로 해보실 수 있습니다)";
+    host.appendChild(b);
   }
 
   /* ── 답변 정리 ── */
@@ -780,6 +786,11 @@
       var txt=summarize();
       view.appendChild(el("div","result",esc(txt)));
       view.appendChild(el("div","skip","자동으로 전송되지 않습니다. 복사해서 직접 보내주셔야 합니다. 복사가 안 되면 위 내용을 길게 눌러 직접 선택해 주세요."));
+      /* 답변을 마친 사람에게 실제 앱을 권한다 — "쓰고 싶다"고 한 분들이 닿을 자리 */
+      var appLink = document.createElement("a");
+      appLink.className = "more"; appLink.href = "app/index.html";   /* 폴더가 아니라 파일로 — file:// 로 열어도 되게 */
+      appLink.textContent = "직접 만져보시겠어요? 실제 앱 열기 (견본이 들어 있어 사진 없이도 됩니다)";
+      view.appendChild(appLink);
       foot([{label:"처음부터",fn:function(){ A={}; step=0; persp="site"; buildList(); sidx=0; clearA(); render(); },ghost:true},
             {label:"답변 복사하기",fn:function(){
               copyText(txt).then(function(){ clearA(); showToast("복사되었습니다 — 붙여넣어 주세요"); },
