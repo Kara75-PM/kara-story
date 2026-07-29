@@ -137,6 +137,31 @@ if (missing.size) {
   console.log('· app.js 에서 정의를 못 찾은 호출(오탐 가능): ' + [...missing].join(', '));
 }
 
+/* 가족 화면이 창고에 직접 손을 뻗지 않는가
+ *
+ * 여기가 R-58 의 뿌리였다. 가족 화면이 /storage/v1/object/... 를 직접
+ * 부르려면 창고를 anon 에게 열어야 하고, 그러면 공유 하나만 켜져 있어도
+ * 그 센터 사진이 전부 열거된다. (2026-07-28 · 07-30 두 번 실측 재현)
+ *
+ * 2026-07-30 에 서버 프로그램(functions/photo)을 거치게 바꿨다.
+ * 이 규칙은 그게 되돌아오는 것을 막는다 —
+ * 급할 때 「잠깐만 직접 부르자」 가 사고가 되는 길이다. */
+try {
+  const viewSrc = require('fs').readFileSync(
+    require('path').join(__dirname, 'view.html'), 'utf8');
+  const hits = (viewSrc.match(/[/]storage[/]v1[/]object[/]/g) || []).length;
+  if (hits) {
+    console.log('X view.html 이 사진 창고를 직접 부른다 (' + hits + '곳) — R-58 이 되살아난다.');
+    console.log('  서버 프로그램(/functions/v1/photo) 을 거쳐야 한다.');
+    bad += hits;
+  } else {
+    console.log('· view.html 이 창고를 직접 부르지 않음 ✓');
+  }
+} catch (e) {
+  console.log('X view.html 을 읽지 못했다 — ' + e.message);
+  bad++;
+}
+
 console.log('');
 console.log(bad === 0 ? '✅ 참조 문제 없음' : '❌ 문제 ' + bad + '건');
 process.exit(bad === 0 ? 0 : 1);

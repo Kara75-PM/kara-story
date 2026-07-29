@@ -130,26 +130,45 @@
     }
   }
 
-  /* anon 키로 비공개 사진 받기 (공유 활성일 때만 서버가 내준다) */
-  function loadPhoto(path, imgEl){
-    var card = imgEl.closest('.card');
-    fetch(URL_+'/storage/v1/object/'+BUCKET+'/'+path, {
+  /* ── 사진 받기 ──────────────────────────────────────────────
+   * 🔴 예전에는 **창고에 직접** 손을 뻗었다:
+   *      fetch(창고주소 + 사진경로, {apikey: 공개열쇠})   ← 창고를 직접 불렀다
+   *    그러려면 창고를 anon 에게 열어야 했고, 그 결과 **공유 링크가 하나만
+   *    살아 있어도 그 센터 사진이 전부 열거**됐다. (R-58, 2026-07-28 실측)
+   *    2026-07-30 에 다시 재봤을 때도 폴더와 파일 이름이 그대로 나왔다.
+   *
+   * 이제는 서버 프로그램에 **토큰과 사진 번호**를 주고 시간 제한 주소를 받는다.
+   *   · 창고 주소를 화면이 아예 모른다
+   *   · 받은 주소는 4시간 뒤 스스로 닫힌다
+   *   · 남의 사진 번호를 넣으면 서버가 거절한다 (DB 가 어르신을 재확인)
+   *
+   * ⚠️ 이 파일이 창고 주소를 직접 부르면 그것이 곧 구멍이다.
+   *    `app/_check.js` 가 커밋 때 감시한다.
+   */
+  function signedUrl(recId, thumb){
+    return fetch(URL_+'/functions/v1/photo?t='+encodeURIComponent(token())+
+                 '&r='+encodeURIComponent(recId)+(thumb ? '&thumb=1' : ''), {
       headers: { apikey: KEY, Authorization: 'Bearer '+KEY }
-    }).then(function(r){ return r.ok ? r.blob() : null; })
-      .then(function(b){
-        if(!b){ if(card) card.remove(); checkEmpty(); return; }  /* 못 받으면 그 카드는 뺀다 */
-        var sk = imgEl.parentNode.querySelector('.skel');
-        if(sk) sk.remove();
-        imgEl.src = URL.createObjectURL(b);
-      }).catch(function(){ if(card) card.remove(); checkEmpty(); });
+    }).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ return (j && j.url) ? j.url : null; })
+      .catch(function(){ return null; });
   }
 
-  function openBig(path){
-    fetch(URL_+'/storage/v1/object/'+BUCKET+'/'+path, {
-      headers: { apikey: KEY, Authorization: 'Bearer '+KEY }
-    }).then(function(r){ return r.ok ? r.blob() : null; })
-      .then(function(b){ if(b){ boxImg.src = URL.createObjectURL(b); box.classList.add('on'); } })
-      .catch(function(){ /* 원본 실패 — 썸네일은 이미 떠 있으니 조용히 넘어간다 */ });
+  function loadPhoto(recId, imgEl){
+    var card = imgEl.closest('.card');
+    signedUrl(recId, true).then(function(u){
+      if(!u){ if(card) card.remove(); checkEmpty(); return; }  /* 못 받으면 그 카드는 뺀다 */
+      var sk = imgEl.parentNode.querySelector('.skel');
+      if(sk) sk.remove();
+      imgEl.src = u;                    /* 브라우저가 직접 받는다 — blob 을 안 거친다 */
+    });
+  }
+
+  function openBig(recId){
+    signedUrl(recId, false).then(function(u){
+      if(u){ boxImg.src = u; box.classList.add('on'); }
+      /* 실패하면 조용히 넘어간다 — 썸네일은 이미 떠 있다 */
+    });
   }
   box.addEventListener('click', function(){ box.classList.remove('on'); boxImg.src=''; });
 
@@ -186,10 +205,13 @@
 
     /* 썸네일 로드 + 클릭 시 원본 */
     var imgs = viewEl.querySelectorAll('.card .ph img');
-    imgs.forEach(function(img, i){ loadPhoto(recs[i].thumb_path || recs[i].image_path, img); });
+    /* 🔑 경로가 아니라 **사진 번호**를 넘긴다.
+       경로를 화면이 알 필요가 없어졌다 — 그게 이 변경의 핵심이다.
+       썸네일이 없는 기록은 서버가 원본으로 알아서 답한다. */
+    imgs.forEach(function(img, i){ loadPhoto(recs[i].id, img); });
     viewEl.querySelectorAll('.ph').forEach(function(btn){
       btn.addEventListener('click', function(){
-        openBig(recs[+btn.dataset.i].image_path);
+        openBig(recs[+btn.dataset.i].id);
       });
     });
   }
