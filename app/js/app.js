@@ -1275,9 +1275,16 @@
   }
 
   function renderPast() {
-    var today = Model.todayLocal();
-    var past = (S.allRecords || []).filter(function (r) { return r.occurredAt !== today; });
-    if (!past.length) return;                 /* 오늘치뿐이면 아예 안 그린다 */
+    /* 🔑 「오늘 남긴 것」의 **여집합**이어야 한다.
+       그쪽(refreshData)이 「올린 날(createdAt)」로 바뀌었으므로 여기도 같은 기준을 쓴다.
+
+       ⚠️ 2026-07-30 개발 마스터가 잡은 것 — 전엔 여기가 `occurredAt !== today` 였다.
+          그러면 **오늘 올린 옛 사진**(createdAt=오늘, occurredAt=null)이
+          「오늘 남긴 것」과 「지금까지 쌓인 것」 **양쪽에 다 뜬다.**
+          견본이 3장 중 2장을 1970·1990년대로 만들므로 체험 모드에서 바로 재현됐다.
+          기준이 갈라진 두 목록은 **한쪽만 고치면 안 된다.** */
+    var past = (S.allRecords || []).filter(function (r) { return !uploadedToday(r); });
+    if (!past.length) return;                 /* 오늘 올린 것뿐이면 아예 안 그린다 */
 
     /* 몇 시기치인가.
        ⚠️ 예전엔 days[r.occurredAt] 로 묶어서, 옛 사진이 전부 `undefined` 한 칸에

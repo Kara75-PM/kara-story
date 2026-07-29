@@ -162,6 +162,59 @@ try {
   bad++;
 }
 
+/* 가족 화면이 연대기를 **실제로 쓰는가**
+ *
+ * ⚠️ 2026-07-30 테스트 마스터가 돌연변이 실험으로 잡았다.
+ *    `render()` 안에서 `groupByPeriod(...)` 호출만 지우면
+ *    **연대기가 화면에서 완전히 사라지는데 `_test2.js` 24건이 전부 통과**했다.
+ *    `_test2.js` 는 함수 4개를 떼어내 「계산이 맞는가」만 보고,
+ *    「화면이 그 함수를 쓰는가」는 보지 않기 때문이다.
+ *
+ * 배운 것: 역대조를 **한 겹만** 했다. 함수를 망가뜨려 실패를 봤지만,
+ *          호출을 끊었을 때는 안 봤다. 그 한 겹을 여기서 메운다. */
+try {
+  const viewSrc = require('fs').readFileSync(
+    require('path').join(__dirname, 'view.html'), 'utf8');
+  const i = viewSrc.indexOf('function render(');
+  if (i < 0) {
+    console.log('X view.html 에 render() 가 없다');
+    bad++;
+  } else if (viewSrc.slice(i).indexOf('groupByPeriod(') < 0) {
+    console.log('X view.html 의 render() 가 groupByPeriod() 를 부르지 않는다');
+    console.log('  — 연대기가 화면에서 사라진다. _test2.js 는 이걸 못 잡는다.');
+    bad++;
+  } else {
+    console.log('· view.html 의 render() 가 연대기를 실제로 부름 ✓');
+  }
+} catch (e) {
+  console.log('X view.html 연대기 호출 검사 실패 — ' + e.message);
+  bad++;
+}
+
+/* 홈 화면의 두 목록이 **같은 기준**을 쓰는가
+ *
+ * 🔴 2026-07-30 개발 마스터가 잡은 것.
+ *    「오늘 남긴 것」을 `uploadedToday`(올린 날)로 바꾸면서
+ *    「지금까지 쌓인 것」(renderPast)은 `occurredAt !== today`(만든 날) 그대로 뒀다.
+ *    그러면 **오늘 올린 옛 사진이 양쪽에 다 뜬다.**
+ *    두 목록은 서로 **여집합**이어야 하므로 판정 함수가 하나여야 한다.
+ *
+ * 견본이 3장 중 2장을 옛 사진으로 만들고 실사용자 5명이 전부 체험 모드라,
+ * 이건 이론이 아니라 **그분들이 보던 화면**이었다. */
+{
+  const m = files.app.match(/function renderPast\s*\([\s\S]*?\n  \}/);
+  if (!m) {
+    console.log('X app.js 에서 renderPast 를 찾지 못함');
+    bad++;
+  } else if (m[0].indexOf('uploadedToday') < 0) {
+    console.log('X renderPast 가 uploadedToday 를 안 쓴다 —');
+    console.log('  「오늘 남긴 것」과 기준이 갈라져 옛 사진이 두 목록에 다 뜬다.');
+    bad++;
+  } else {
+    console.log('· 홈의 두 목록이 같은 기준(uploadedToday)을 씀 ✓');
+  }
+}
+
 console.log('');
 console.log(bad === 0 ? '✅ 참조 문제 없음' : '❌ 문제 ' + bad + '건');
 process.exit(bad === 0 ? 0 : 1);

@@ -83,6 +83,42 @@ t('occurredAt 과 createdAt 은 다른 값이다', () => {
   else pass++;
 });
 
+/* ── 「날짜를 모르면 오늘로 채우지 않는다」 (2026-07-30 추가) ──────
+ * 이게 이번 세션 전체의 뿌리다.
+ *   예전엔 occurredAt 이 없으면 무조건 todayLocal() 을 넣었다.
+ *   그래서 **1970년대 사진을 넣어도 「올해」가 됐고**, 연대기가 성립하지 않았다.
+ *
+ * 🔴 개발·테스트 마스터가 같이 지적: 이 핵심 변경에 시험이 **하나도 없었다.**
+ *    다음에 누가 되돌려도 아무도 못 잡는 상태였다. */
+t('시기 힌트가 있으면 occurredAt 을 오늘로 채우지 않는다', () => {
+  const rec = Model.makeRecord({
+    elderId: 'x', occurredHint: { type: 'decade', value: '1970' } });
+  if (rec.occurredAt !== null) {
+    fail++;
+    console.log('✗ 옛 사진에 날짜가 채워졌다: ' + rec.occurredAt + ' — 「올해」로 뭉친다');
+  } else if (!rec.occurredHint || rec.occurredHint.value !== '1970') {
+    fail++; console.log('✗ 시기 힌트가 안 담겼다');
+  } else pass++;
+});
+
+t('날짜도 시기도 없으면 오늘로 채운다 (센터에서 오늘 찍은 것)', () => {
+  const rec = Model.makeRecord({ elderId: 'x' });
+  if (rec.occurredAt !== Model.todayLocal()) {
+    fail++; console.log('✗ 오늘로 안 채워짐: ' + rec.occurredAt);
+  } else pass++;
+});
+
+t('둘 다 없으면 검증이 거부한다', () => {
+  /* DB 의 records_when_required CHECK 와 같은 규칙을 앱에서도 지킨다.
+     한쪽만 있으면 「앱은 통과시키는데 서버가 거절」하는 어긋남이 생긴다. */
+  const rec = Model.makeRecord({ elderId: 'x' });
+  rec.occurredAt = null; rec.occurredHint = null;
+  const errs = Model.validateRecord(rec);
+  if (!errs || !errs.length) {
+    fail++; console.log('✗ 날짜도 시기도 없는 기록을 통과시킨다');
+  } else pass++;
+});
+
 /* ── UI.humanError — 영어 오류가 화면으로 새지 않는가 (2026-07-29 추가) ──
  * 폰 저장 공간이 차면 "The quota has been exceeded." 가 그대로 떴다.
  * 이 앱을 쓰는 사람은 센터 직원과 어르신이다. 영어를 띄우면 안 된다.
