@@ -986,7 +986,12 @@
     if (!e) { S.screen = 'home'; renderHome(); return; }
 
     var c = UI.card();
-    c.appendChild(UI.el('p', 'eyebrow', Model.periodLabel(e.rec)));
+    /* ⚠️ periodLabel 은 occurredHint.value 를 **그대로** 돌려준다.
+       그 값은 서버 DB(occurred_hint text)에서 온 것이고, 파싱에 실패하면
+       hintToApp 이 원문을 그대로 담아 살린다(store-supa.js). 즉 사람이 넣은 글이
+       여기까지 올 수 있다. UI.el 은 innerHTML 이므로 반드시 esc 를 거친다.
+       (같은 값을 쓰는 1395줄 휴지통은 이미 esc 를 쓰고 있었다 — 여기만 빠져 있었다) */
+    c.appendChild(UI.el('p', 'eyebrow', UI.esc(Model.periodLabel(e.rec))));
     c.appendChild(UI.el('h2', null, '기록 고치기'));
 
     /* 사진 바로 위에 「지우기」 — 하단 닫기와 겹치지 않게 여기 둔다 */
