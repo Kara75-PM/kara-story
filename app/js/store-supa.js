@@ -133,8 +133,13 @@
 
   function saveElder(elder) {
     var body = elderToDb(elder);
+    /* 고칠 때는 id 를 본문에 넣지 않는다 — 주소(?id=eq.…)에 이미 있다.
+       서버가 「고쳐도 되는 칸」을 이름으로 제한하고 있어서(10-column-grants.sql),
+       id 가 본문에 섞이면 권한이 없어 저장 전체가 거부된다. 넣을 때만 필요하다. */
+    var patch = {};
+    Object.keys(body).forEach(function (k) { if (k !== 'id') patch[k] = body[k]; });
     return Supa.rest('elders?id=eq.' + elder.id, {
-      method: 'PATCH', body: JSON.stringify(body),
+      method: 'PATCH', body: JSON.stringify(patch),
       headers: { Prefer: 'return=representation' }
     }).then(function (rows) {
       if (rows && rows.length) return elderToApp(rows[0]);

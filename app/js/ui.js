@@ -37,6 +37,40 @@
     });
   }
 
+  /* ── 기기에서 나는 오류를 사람 말로 ────────────────────────
+   * supa.js 의 friendly() 가 「서버가 준 영어」를 맡는다면, 이쪽은
+   * 「브라우저·저장소가 던지는 영어」를 맡는다. 짝을 이룬다.
+   *
+   * 왜 필요한가: 폰 저장 공간이 차면 화면에 그대로
+   *   "The quota has been exceeded." 가 떴다.
+   *   이 앱을 쓰는 사람은 센터 직원과 어르신이다. 영어를 띄우면 안 된다.
+   *
+   * 마지막 규칙이 핵심이다 — **한글이 한 자도 없으면 영어 원문이므로 안 보여준다.**
+   * 우리가 모르는 오류가 새로 생겨도 영어가 새어 나가지 않는다. */
+  function humanError(e, fallback) {
+    var name = (e && e.name) || '';
+    var msg  = (e && e.message) || String(e == null ? '' : e);
+    var both = name + ' ' + msg;
+    var d    = fallback || '문제가 생겼습니다. 잠시 뒤 다시 시도해 주세요.';
+
+    if (/quota|storage.*full/i.test(both))
+      return '이 기기의 저장 공간이 가득 찼습니다. 사진을 몇 장 지우신 뒤 다시 시도해 주세요.';
+    if (/NotAllowedError|permission.*denied/i.test(both))
+      return '사진·카메라를 열 권한이 없습니다. 브라우저 설정에서 허용해 주세요.';
+    if (/SecurityError/i.test(both))
+      return '비공개(시크릿) 창에서는 저장이 안 됩니다. 일반 창에서 열어 주세요.';
+    if (/VersionError|InvalidStateError|AbortError/i.test(both))
+      return '저장소를 여는 중 문제가 생겼습니다. 화면을 새로고침해 주세요.';
+    if (/NotFoundError|NotReadableError/i.test(both))
+      return '사진 파일을 읽지 못했습니다. 다른 사진으로 다시 시도해 주세요.';
+    if (/Failed to fetch|NetworkError|ERR_INTERNET/i.test(both))
+      return '인터넷 연결이 끊긴 것 같습니다. 연결을 확인하고 다시 시도해 주세요.';
+
+    /* 한글이 한 자도 없으면 영어다 — 화면에 내보내지 않는다 */
+    if (!msg || !/[가-힣]/.test(msg)) return d;
+    return msg;
+  }
+
   function clear() { view.innerHTML = ''; foot.innerHTML = ''; }
 
   /* onClick 을 주면 칩이 버튼이 된다.
@@ -158,6 +192,10 @@
       dlg.innerHTML = '';
       if (opts.warn) dlg.appendChild(el('div', 'warnline', esc(opts.warn)));
       dlg.appendChild(el('h3', null, esc(opts.title || '확인')));
+      /* ⚠️ body 만 esc 를 안 한다 — <b>·<br> 을 쓰려고 일부러 HTML 로 받는다.
+         그래서 **부르는 쪽이** 사람이 입력한 값(어르신 성함·메모)을 넣을 땐
+         반드시 UI.esc() 로 감싸야 한다. 안 그러면 그 값이 코드로 실행된다.
+         (2026-07-29: app.js 의 어르신 성함 한 곳이 실제로 빠져 있었다) */
       if (opts.body) dlg.appendChild(el('div', 'bd', opts.body));
 
       var acts = el('div', 'acts');
@@ -263,6 +301,7 @@
     init: init,
     el: el,
     esc: esc,
+    humanError: humanError,
     clear: clear,
     setChip: setChip,
     card: card,

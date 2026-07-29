@@ -83,6 +83,73 @@ t('occurredAt 과 createdAt 은 다른 값이다', () => {
   else pass++;
 });
 
+/* ── UI.humanError — 영어 오류가 화면으로 새지 않는가 (2026-07-29 추가) ──
+ * 폰 저장 공간이 차면 "The quota has been exceeded." 가 그대로 떴다.
+ * 이 앱을 쓰는 사람은 센터 직원과 어르신이다. 영어를 띄우면 안 된다.
+ * ui.js 는 브라우저 전용이라 통째로 require 하면 죽는다 → 함수만 떼어 시험한다. */
+const _uiSrc = require('fs')
+  .readFileSync(require('path').join(__dirname, 'js', 'ui.js'), 'utf8')
+  .replace(/\r/g, '').split('\n');
+const _hs = _uiSrc.findIndex(l => /^\s*function humanError/.test(l));
+let _he = -1;
+for (let i = _hs + 1; i < _uiSrc.length; i++) if (/^\s{2}\}\s*$/.test(_uiSrc[i])) { _he = i; break; }
+
+t('humanError 를 ui.js 에서 찾을 수 있다', () => {
+  if (_hs < 0 || _he < 0) throw new Error('humanError 추출 실패 — ui.js 구조가 바뀌었는지 확인');
+  pass++;
+});
+
+if (_hs >= 0 && _he >= 0) {
+  const human = new Function(_uiSrc.slice(_hs, _he + 1).join('\n') + '\nreturn humanError;')();
+  const err = (name, msg) => Object.assign(new Error(msg), { name: name });
+
+  [
+    ['저장공간 부족',   err('QuotaExceededError', 'The quota has been exceeded.'), '저장 공간'],
+    ['권한 없음',       err('NotAllowedError', 'The request is not allowed'),      '권한'],
+    ['시크릿 창',       err('SecurityError', 'access denied'),                     '시크릿'],
+    ['저장소 열기 실패', err('VersionError', 'db blocked'),                         '새로고침'],
+    ['사진 못 읽음',    err('NotReadableError', 'could not read'),                 '사진 파일'],
+    ['인터넷 끊김',     new TypeError('Failed to fetch'),                          '인터넷'],
+  ].forEach(([label, e, must]) => {
+    t(label + ' → 한글로 바뀐다', () => {
+      const out = human(e, '저장하지 못했습니다');
+      if (!out.includes(must)) throw new Error(`"${must}" 가 없음 — 실제: ${out}`);
+      if (/[A-Za-z]{4,}/.test(out)) throw new Error('영어가 남아 있음: ' + out);
+      pass++;
+    });
+  });
+
+  t('모르는 영어 오류는 기본 문구로 떨어진다', () => {
+    const out = human(new Error('Some brand new english error nobody predicted'), '저장하지 못했습니다');
+    if (/[A-Za-z]{4,}/.test(out)) throw new Error('영어가 새어 나감: ' + out);
+    if (out !== '저장하지 못했습니다') throw new Error('기본 문구가 아님: ' + out);
+    pass++;
+  });
+
+  t('이미 한글인 메시지는 그대로 둔다', () => {
+    const out = human(new Error('사진을 저장하지 못했습니다'), '기본값');
+    if (out !== '사진을 저장하지 못했습니다') throw new Error('원문이 바뀜: ' + out);
+    pass++;
+  });
+
+  t('오류가 null 이어도 안 죽는다', () => {
+    const out = human(null, '저장하지 못했습니다');
+    if (out !== '저장하지 못했습니다') throw new Error('null 처리 실패: ' + out);
+    pass++;
+  });
+}
+
+/* ── app.js 가 오류를 날것으로 화면에 내보내지 않는가 ────────── */
+t('app.js 에 e.message 직접 노출이 남아 있지 않다', () => {
+  const appSrc = require('fs').readFileSync(require('path').join(__dirname, 'js', 'app.js'), 'utf8');
+  const bad = [
+    /UI\.say\(\s*e\.message/, /UI\.say\(\s*err\.message/,
+    /item\.error\s*=\s*\(e && e\.message\)/, /UI\.esc\(e && e\.message/,
+  ].filter(re => re.test(appSrc));
+  if (bad.length) throw new Error(bad.length + '곳이 날것으로 노출 — UI.humanError 로 감싸야 함');
+  pass++;
+});
+
 console.log('');
 console.log(fail === 0 ? `✅ 통과 ${pass}건` : `❌ 실패 ${fail}건 / 통과 ${pass}건`);
 process.exit(fail === 0 ? 0 : 1);

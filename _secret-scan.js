@@ -10,6 +10,7 @@
  *   - sb_secret_… / service_role JWT   (모든 권한을 뚫는 비밀 키)
  *   - 데이터베이스 비밀번호로 보이는 것
  *   - 실제 개인 이메일 (@gmail 등) · 전화번호
+ *   - 「경로」 자체가 금지인 것 — sql/ · 사진 파일        ← 2026-07-29 추가
  *
  * 무엇은 통과시키나 (공개돼도 되는 것)
  *   - sb_publishable_… / anon 키    (브라우저에 들어가는 공개값)
@@ -35,7 +36,25 @@ const RULES = [
   { name: '전화번호(010)',       re: /\b01[016-9][-. ]?\d{3,4}[-. ]?\d{4}\b/ },
 ];
 
-/* ── 무시(공개 안전값·자기 자신) ─────────────────── */
+/* ── 경로 자체가 금지인 것 ───────────────────────────
+ * 내용 규칙(RULES)으로는 못 막는 종류가 있다.
+ *   - sql/ : 비밀은 없지만 「공격자에게 주는 지도」다. 사진 경로 규칙 ·
+ *            anon 이 부를 수 있는 함수 이름 · 권한 정책의 조기반환 조건.
+ *            정본은 비공개 Geurium/sql/ 에 있다. (2026-07-28 결정, CLAUDE.md 7항)
+ *   - 사진 : 아래 SKIP_EXT 가 「검사에서 제외」하기 때문에, 실제 어르신 사진을
+ *            커밋해도 스캐너가 한 마디도 못 한다. 제외가 곧 구멍이었다.
+ * 새로 허용해야 할 파일이 생기면 ALLOW_PATHS 에 정확한 경로를 적는다. */
+const DENY_PATHS = [
+  { re: /^sql\//i,                              why: 'DB 설계는 비공개 저장소에만 (CLAUDE.md 7항)' },
+  { re: /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?)$/i, why: '사진은 절대 커밋하지 않는다 — 어르신 개인 데이터일 수 있다' },
+];
+/* DENY_PATHS 에 걸리지만 예외로 허용할 정확한 경로 (예: 'app/icon.png') */
+const ALLOW_PATHS = [];
+
+/* ── 무시(공개 안전값·자기 자신) ───────────────────
+ * ⚠️ 이 목록은 「찾아낸 값 자체」와만 대조한다. 줄 전체와 대조하면,
+ *    한 줄에 sb_publishable_ 이 있다는 이유로 같은 줄의 sb_secret_ 이
+ *    함께 통과한다. 키가 나란히 적히는 config 류에서 실제로 일어날 수 있다. */
 const ALLOW = [
   /sb_publishable_/,          // 공개용 키 (안전)
   /@example\.com/,            // 더미
@@ -64,16 +83,31 @@ function trackedFiles() {
 function scan(files) {
   const hits = [];
   files.forEach(f => {
+    const p = f.replace(/\\/g, '/');
+
+    /* 1) 경로 금지 — 내용을 열어보기 전에 막는다 */
+    if (!ALLOW_PATHS.includes(p)) {
+      const denied = DENY_PATHS.find(d => d.re.test(p));
+      if (denied) {
+        hits.push({ file: f, line: 0, rule: '올리면 안 되는 경로', hit: denied.why });
+        return;
+      }
+    }
+
     if (SKIP_FILES.some(re => re.test(f))) return;
     if (SKIP_EXT.test(f)) return;
     let text;
     try { text = fs.readFileSync(f, 'utf8'); } catch (e) { return; }
     const lines = text.split('\n');
     lines.forEach((line, i) => {
-      if (ALLOW.some(re => re.test(line))) return;
       RULES.forEach(rule => {
-        const m = rule.re.exec(line);
-        if (m) {
+        /* 한 줄에 여러 개가 있을 수 있다 — 전부 본다 */
+        const re = new RegExp(rule.re.source, rule.re.flags.includes('g') ? rule.re.flags : rule.re.flags + 'g');
+        let m;
+        while ((m = re.exec(line)) !== null) {
+          if (m[0] === '') { re.lastIndex++; continue; }
+          /* 2) 허용은 「찾아낸 값」과만 대조한다 (줄 전체가 아니라) */
+          if (ALLOW.some(a => a.test(m[0]))) continue;
           const shown = m[0].length > 40 ? m[0].slice(0, 24) + '…' : m[0];
           hits.push({ file: f, line: i + 1, rule: rule.name, hit: shown });
         }

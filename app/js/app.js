@@ -29,7 +29,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v20';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v21';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -91,7 +91,7 @@
     Store.use(want)
       .catch(function (e) {
         if (want !== 'supa') throw e;
-        UI.say(e.message || '서버에 연결하지 못했습니다', { tone: 'warn', ms: 9000 });
+        UI.say(UI.humanError(e, '서버에 연결하지 못했습니다'), { tone: 'warn', ms: 9000 });
         return Store.use('idb');
       })
       /* 지운 지 오래된 것을 조용히 정리한다. 실패해도 앱은 계속 돈다. */
@@ -117,7 +117,7 @@
         c.appendChild(UI.el('h2', null, '저장소를 열지 못했습니다'));
         UI.msg(c, 'warn', '브라우저의 저장 기능을 쓸 수 없는 상태입니다.<br>' +
           '시크릿 모드이거나 저장이 꺼져 있을 수 있습니다.<br><br>' +
-          '<span style="font-size:.82rem;color:var(--muted)">' + UI.esc(e && e.message || e) + '</span>');
+          '<span style="font-size:.82rem;color:var(--muted)">' + UI.esc(UI.humanError(e, '알 수 없는 문제')) + '</span>');
       });
   }
 
@@ -255,7 +255,7 @@
         render();
       })
       .catch(function (e) {
-        item.error = (e && e.message) || '사진을 읽지 못했습니다';
+        item.error = UI.humanError(e, '사진을 읽지 못했습니다');
         render();
       });
   }
@@ -378,7 +378,7 @@
       })
       .catch(function (e) {
         item.saving = false;
-        item.error = (e && e.message) || '저장하지 못했습니다';
+        item.error = UI.humanError(e, '저장하지 못했습니다');
         UI.say(item.error, { tone: 'warn', ms: 8000 });
         render();
       });
@@ -609,7 +609,7 @@
                 들어가 칩이 잘못 눌린다. 반드시 함수로 감싼다. */
           Supa.signOut();
           Store.use('idb').then(function () { markBackend(chipTappable()); });
-          UI.say(err.message || '로그인하지 못했습니다', { tone: 'warn', ms: 9000 });
+          UI.say(UI.humanError(err, '로그인하지 못했습니다'), { tone: 'warn', ms: 9000 });
           pw.focus();
         });
     }
@@ -1211,7 +1211,7 @@
         render();
       });
     }).catch(function (err) {
-      UI.say(err.message || '링크를 만들지 못했습니다', { tone: 'warn', ms: 8000 });
+      UI.say(UI.humanError(err, '링크를 만들지 못했습니다'), { tone: 'warn', ms: 8000 });
     });
   }
 
@@ -1235,7 +1235,7 @@
         UI.say('링크를 폐기했습니다', { tone: 'ok' });
         render();
       }).catch(function (err) {
-        UI.say(err.message || '폐기하지 못했습니다', { tone: 'warn', ms: 8000 });
+        UI.say(UI.humanError(err, '폐기하지 못했습니다'), { tone: 'warn', ms: 8000 });
       });
     });
   }
@@ -1406,7 +1406,10 @@
       return UI.ask({
         warn: '마지막 확인입니다',
         title: '정말 지울까요?',
-        body: '<b>' + who + '</b> 어르신의 이 사진은 <b>복구할 수 없습니다.</b><br>' +
+        /* ⚠️ body 는 HTML 로 그려진다(ui.js:30). 어르신 성함은 사람이 입력한 값이므로
+           반드시 esc 를 거친다 — 안 거치면 이름칸에 넣은 태그가 동료 화면에서 실행된다.
+           title·warn 은 ask() 가 알아서 esc 하지만 body 는 HTML 을 허용하느라 안 한다. */
+        body: '<b>' + UI.esc(who) + '</b> 어르신의 이 사진은 <b>복구할 수 없습니다.</b><br>' +
               '<span style="font-size:.84rem;color:var(--muted)">' +
               '실수를 막기 위해 버튼 자리를 바꿔 두었습니다.</span>',
         okLabel: '네, 완전히 지웁니다',
