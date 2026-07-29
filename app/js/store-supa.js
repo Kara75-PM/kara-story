@@ -43,11 +43,37 @@
     };
   }
 
+  /* ── 시기 힌트: 앱은 객체, DB 는 글자 ────────────────────────
+   * 앱  : { type:'decade', value:'1970' }
+   * DB  : occurred_hint **text** (01-tables.sql:47)
+   *
+   * ⚠️ 이 변환이 없으면 **체험 모드는 멀쩡히 돌고 서버 저장만 실패한다.**
+   *    화면에서는 아무 문제가 없어 보여서 늦게 발견된다.
+   *    (2026-07-30 개발 마스터 발견 — 「타입 불일치」가 아니라 「변환기가 없다」)
+   *
+   * 옛 줄에 글자가 그냥 들어 있을 수도 있으니, 못 읽으면 버리지 말고
+   * 「사건」으로 살려 둔다. 데이터를 잃는 것보다 낫다. */
+  function hintToApp(v) {
+    if (v == null || v === '') return null;
+    if (typeof v === 'object') return v;              /* 이미 객체면 그대로 */
+    try {
+      var o = JSON.parse(v);
+      return (o && typeof o === 'object') ? o : { type: 'event', value: String(v) };
+    } catch (e) {
+      return { type: 'event', value: String(v) };     /* 옛 글자 데이터 구제 */
+    }
+  }
+  function hintToDb(v) {
+    if (v == null) return null;
+    if (typeof v === 'string') return v;              /* 이미 글자면 그대로 */
+    try { return JSON.stringify(v); } catch (e) { return null; }
+  }
+
   function recToApp(r) {
     if (!r) return null;
     return {
       id: r.id, elderId: r.elder_id, kind: r.kind,
-      occurredAt: r.occurred_at, occurredHint: r.occurred_hint,
+      occurredAt: r.occurred_at, occurredHint: hintToApp(r.occurred_hint),
       activity: r.activity, note: r.note,
       redacted: !!r.redacted,
       redactTop: Number(r.redact_top) || 0,
@@ -64,7 +90,7 @@
   function recToDb(r) {
     return {
       id: r.id, elder_id: r.elderId, kind: r.kind || 'artwork',
-      occurred_at: r.occurredAt, occurred_hint: r.occurredHint || null,
+      occurred_at: r.occurredAt || null, occurred_hint: hintToDb(r.occurredHint),
       activity: r.activity || null, note: r.note || null,
       redacted: !!r.redacted,
       redact_top: Number(r.redactTop) || 0,

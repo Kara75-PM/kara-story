@@ -28,6 +28,17 @@
     '처음 해보신다며 좋아하셨어요'
   ];
 
+  /* 옛 사진일 때 쓰는 문구.
+     1970년대 사진에 「오늘 웃으시며 하셨어요」가 뜨면 말이 안 맞는다.
+     옛 사진에서 값진 것은 「그날 무슨 일이었나」다 — 그걸 여쭙는 쪽으로 바꾼다. */
+  var QUICK_NOTES_OLD = [
+    '어디서 찍은 건지 아세요?',
+    '누구와 함께 계신가요?',
+    '무슨 날이었나요?',
+    '몇 살 때쯤이세요?',
+    '이 옷 기억나세요?'
+  ];
+
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
   var APP_VERSION = 'v21';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
@@ -169,6 +180,10 @@
         viewUrl: null,      // 큰 미리보기
         stripUrl: null,     // 목록 줄에 쓸 작은 그림 (전부 미리 만든다)
         elderId: null, note: '', rot: 0,
+        /* 언제 만든 것인가.
+           occurredHint 가 null 이면 「오늘」로 저장된다(직원의 평소 흐름).
+           옛 사진이면 {type:'decade', value:'1970'} 같은 값이 들어온다. */
+        occurredHint: null,
         cropTop: DEFAULT_CROP_TOP,
         cropBottom: DEFAULT_CROP_BOTTOM,
         saved: false, saving: false, error: null
@@ -337,8 +352,12 @@
     var crop = { top: item.cropTop, bottom: item.cropBottom };
     var rec = Model.makeRecord({
       elderId: item.elderId,
-      kind: Model.Kind.ARTWORK,
-      occurredAt: Model.todayLocal(),
+      /* 옛 사진이면 종류도 바꾼다 — 연대기·통계에서 오늘 작품과 구분된다 */
+      kind: item.occurredHint ? Model.Kind.OLD_PHOTO : Model.Kind.ARTWORK,
+      /* 시기를 골랐으면 날짜는 비운다. makeRecord 가 알아서 처리한다.
+         (예전엔 여기서 오늘을 무조건 박아서 옛 사진이 전부 올해로 갔다) */
+      occurredAt: item.occurredHint ? null : Model.todayLocal(),
+      occurredHint: item.occurredHint || null,
       note: item.note,
       redacted: (crop.top + crop.bottom) > 0,
       redactTop: crop.top,
@@ -535,10 +554,31 @@
   /* ── 견본 ─────────────────────────────────────────
    * 링크로 처음 들어온 사람 폰에는 어르신 작품 사진이 없다.
    * 올릴 게 없으면 아무것도 못 해보고 닫는다. */
+  /* 견본 3장에 서로 다른 시기를 미리 넣어 둔다.
+   *
+   * 왜: 견본이 전부 「오늘」이면 연대기가 **막대 하나짜리 화면**이 된다.
+   *     처음 보는 사람은 「이게 뭘 보여주는 건지」를 못 읽는다.
+   *     한 장만 오늘로 두면 「예전 것 + 오늘」이 한눈에 대비된다.
+   *
+   * 순서는 acceptFiles 가 파일명으로 정렬한 뒤 기준이다 (견본-꽃 · 견본-산 · 견본-집). */
+  var SAMPLE_PERIODS = [
+    { type: 'decade', value: '1970' },
+    { type: 'decade', value: '1990' },
+    null                                  /* 마지막 한 장은 오늘 */
+  ];
+
   function loadSample(btn) {
     if (btn) { btn.disabled = true; btn.textContent = '견본을 준비하는 중…'; }
     Sample.files()
-      .then(acceptFiles)
+      .then(function (files) {
+        var before = S.queue.length;
+        acceptFiles(files);
+        /* 방금 들어온 것에만 시기를 넣는다 — 이미 있던 사진은 안 건드린다 */
+        S.queue.slice(before).forEach(function (it, i) {
+          it.occurredHint = SAMPLE_PERIODS[i % SAMPLE_PERIODS.length];
+        });
+        render();
+      })
       .catch(function () {
         UI.say('견본을 만들지 못했습니다', { tone: 'warn' });
         render();
@@ -847,16 +887,17 @@
     return { apply: apply };
   }
 
-  /* 한 줄 메모 입력 + 빠른 문구 */
-  function noteInput(host, value, onChange) {
+  /* 한 줄 메모 입력 + 빠른 문구.
+     isOld 를 주면 옛 사진용 문구로 바뀐다 (「오늘 …하셨어요」가 안 맞으므로). */
+  function noteInput(host, value, onChange, isOld) {
     var memo = document.createElement('input');
     memo.type = 'text'; memo.className = 'memo';
-    memo.placeholder = '한 줄이면 충분합니다';
+    memo.placeholder = isOld ? '기억나시는 것을 한 줄로' : '한 줄이면 충분합니다';
     memo.value = value || '';
     memo.addEventListener('input', function (e) { onChange(e.target.value); });
     host.appendChild(memo);
     var quick = UI.el('div', 'quick');
-    QUICK_NOTES.forEach(function (t) {
+    (isOld ? QUICK_NOTES_OLD : QUICK_NOTES).forEach(function (t) {
       var b = document.createElement('button');
       b.type = 'button'; b.textContent = t;
       b.addEventListener('click', function () { memo.value = t; onChange(t); });
@@ -864,6 +905,79 @@
     });
     host.appendChild(quick);
     return memo;
+  }
+
+  /* ── 언제 만든 것인가 ──────────────────────────────────
+   * 왜 있나
+   *   지금까지는 올리는 순간이 곧 「만든 날」이었다. 오늘 걷은 작품만
+   *   올렸으니 맞는 가정이었다. 그런데 연대기를 만들려면 **옛날 것**이
+   *   들어와야 하고, 그때는 「오늘」이 틀린 답이 된다.
+   *
+   * 어떻게 만들었나
+   *   ① 기본은 **「오늘」**이다. 직원이 평소 하던 대로 하면 아무것도 안 눌러도 된다.
+   *   ② 「예전 것」을 눌러야 비로소 연대가 펼쳐진다. 평소 흐름에 짐을 안 얹는다.
+   *   ③ 정확한 날짜를 요구하지 않는다 — 옛 사진은 「1970년대쯤」밖에 모른다.
+   *      (설계 원문: "날짜를 몰라도 된다")
+   *
+   * 값의 모양
+   *   오늘        → occurredHint = null       (저장할 때 오늘 날짜가 들어간다)
+   *   1970년대    → { type:'decade', value:'1970' }
+   *   시기 모름   → { type:'unknown' }
+   */
+  var DECADES = ['1950', '1960', '1970', '1980', '1990', '2000', '2010'];
+
+  function periodPicker(host, hint, onChange) {
+    var isOld = !!hint;
+
+    /* 1단 — 오늘 / 예전 것 */
+    var row = UI.el('div', 'names');
+    [['오늘', false], ['예전 것', true]].forEach(function (p) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = p[0];
+      if (isOld === p[1]) b.className = 'sel';
+      b.addEventListener('click', function () {
+        /* 「예전 것」을 처음 누르면 어느 연대인지 아직 모른다 → 시기 모름으로 시작 */
+        onChange(p[1] ? { type: Model.PeriodHint.UNKNOWN } : null);
+      });
+      row.appendChild(b);
+    });
+    host.appendChild(row);
+
+    if (!isOld) return;
+
+    /* 2단 — 연대 고르기 (「예전 것」일 때만 펼친다) */
+    var row2 = UI.el('div', 'quick');
+    DECADES.forEach(function (d) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = d + '년대';
+      if (hint.type === Model.PeriodHint.DECADE && hint.value === d) {
+        b.style.borderColor = 'var(--accent)';
+        b.style.color = 'var(--accent)';
+        b.style.fontWeight = '700';
+      }
+      b.addEventListener('click', function () {
+        onChange({ type: Model.PeriodHint.DECADE, value: d });
+      });
+      row2.appendChild(b);
+    });
+    var unk = document.createElement('button');
+    unk.type = 'button';
+    unk.textContent = '언제인지 모름';
+    if (hint.type === Model.PeriodHint.UNKNOWN) {
+      unk.style.borderColor = 'var(--accent)';
+      unk.style.color = 'var(--accent)';
+      unk.style.fontWeight = '700';
+    }
+    unk.addEventListener('click', function () {
+      onChange({ type: Model.PeriodHint.UNKNOWN });
+    });
+    row2.appendChild(unk);
+    host.appendChild(row2);
+
+    host.appendChild(UI.el('div', 'crophint',
+      '정확한 날짜를 몰라도 됩니다. <b>대충 어느 무렵인지</b>만 골라주세요.'));
   }
 
   /* ── 고치기 화면 ── */
@@ -910,9 +1024,12 @@
       function (id) { e.elderId = id; render(); });
     c.appendChild(sec1);
 
+    var eOld = !!e.occurredHint;
     var sec2 = UI.el('div', 'sect');
-    sec2.appendChild(UI.el('div', 'lbl', '오늘 어떠셨나요? <span style="font-weight:400">(안 쓰셔도 됩니다)</span>'));
-    noteInput(sec2, e.note, function (v) { e.note = v; });
+    sec2.appendChild(UI.el('div', 'lbl',
+      (eOld ? '이 사진, 무엇이 기억나세요?' : '오늘 어떠셨나요?') +
+      ' <span style="font-weight:400">(안 쓰셔도 됩니다)</span>'));
+    noteInput(sec2, e.note, function (v) { e.note = v; }, eOld);
     c.appendChild(sec2);
 
     UI.buttons([
@@ -1511,10 +1628,21 @@
         function (id) { item.elderId = id; render(); });
       c.appendChild(sec1);
 
-      /* ── 한 줄 메모 ── */
+      /* ── 언제 만든 것인가 (기본 「오늘」 — 안 누르면 지금까지와 똑같다) ── */
+      var secWhen = UI.el('div', 'sect');
+      secWhen.appendChild(UI.el('div', 'lbl', '언제 만드신 건가요?'));
+      periodPicker(secWhen, item.occurredHint, function (h) {
+        item.occurredHint = h; render();
+      });
+      c.appendChild(secWhen);
+
+      /* ── 한 줄 메모 (옛 사진이면 묻는 말이 달라진다) ── */
+      var isOld = !!item.occurredHint;
       var sec2 = UI.el('div', 'sect');
-      sec2.appendChild(UI.el('div', 'lbl', '오늘 어떠셨나요? <span style="font-weight:400">(안 쓰셔도 됩니다)</span>'));
-      noteInput(sec2, item.note, function (v) { item.note = v; });
+      sec2.appendChild(UI.el('div', 'lbl',
+        (isOld ? '이 사진, 무엇이 기억나세요?' : '오늘 어떠셨나요?') +
+        ' <span style="font-weight:400">(안 쓰셔도 됩니다)</span>'));
+      noteInput(sec2, item.note, function (v) { item.note = v; }, isOld);
       c.appendChild(sec2);
 
     }

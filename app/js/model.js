@@ -97,8 +97,14 @@
       elderId:  input.elderId || null,
       kind:     input.kind || Kind.ARTWORK,
 
-      /* 🔑 있었던 날 — 옛 사진이면 50년 전일 수 있다 */
-      occurredAt:   input.occurredAt || todayLocal(),
+      /* 🔑 있었던 날 — 옛 사진이면 50년 전일 수 있다.
+       *
+       * ⚠️ 시기 힌트(「1970년대쯤」)만 아는 경우에는 **여기를 비운다.**
+       *    예전엔 힌트가 있어도 오늘 날짜를 함께 박았다. 그러면
+       *      · 연대기가 옛 사진을 전부 「올해」 칸에 쌓고
+       *      · 아래 validateRecord 의 날짜 검사가 영영 발동하지 않는다.
+       *    (2026-07-30 테스트 마스터 발견) */
+      occurredAt:   input.occurredAt || (input.occurredHint ? null : todayLocal()),
       /* 🔑 날짜를 모를 때: {type:'decade', value:'1970'} 같은 형태 */
       occurredHint: input.occurredHint || null,
 
