@@ -211,9 +211,14 @@
     if (opts.kind)       q += '&kind=eq.' + encodeURIComponent(opts.kind);
     if (opts.occurredAt) q += '&occurred_at=eq.' + opts.occurredAt;
 
+    /* ⚠️ nullslast 가 없으면 **날짜가 빈 옛 사진이 맨 위**로 온다.
+       Postgres 는 내림차순에서 NULL 을 먼저 놓기 때문이다.
+       체험 저장소(store-idb.js:145)는 빈 값을 맨 아래로 보내므로,
+       안 맞추면 **같은 데이터가 체험/서버에서 다른 순서**로 보인다.
+       옛 사진은 가장 오래된 것이니 아래가 맞다. (2026-07-29 개발·테스트 마스터 지적) */
     q += (opts.deleted === true)
       ? '&order=deleted_at.desc'
-      : '&order=occurred_at.desc,created_at.desc';
+      : '&order=occurred_at.desc.nullslast,created_at.desc';
     if (opts.limit) q += '&limit=' + opts.limit;
 
     return Supa.rest(q).then(function (rows) { return (rows || []).map(recToApp); });

@@ -40,7 +40,7 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v21';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v22';                  // 의견에 함께 실어 어느 판인지 알 수 있게
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
@@ -132,17 +132,35 @@
       });
   }
 
+  /* 이 기록을 「오늘 올렸나」.
+   *
+   * ⚠️ createdAt 은 UTC(`nowIso`)이고 todayLocal 은 한국 시간이다.
+   *    앞 10글자를 잘라 비교하면 **아침 9시 이전에 어긋난다** — 그 시간대엔
+   *    UTC 가 아직 어제다. 직원은 아침에 일한다. 그래서 날짜로 변환해 견준다.
+   */
+  function uploadedToday(rec) {
+    if (!rec || !rec.createdAt) return false;
+    var d = new Date(rec.createdAt);
+    if (isNaN(d.getTime())) return false;
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return (d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()))
+           === Model.todayLocal();
+  }
+
   function refreshData() {
     return Promise.all([
       Store.listElders(),
-      Store.listRecords({ occurredAt: Model.todayLocal() }),
       Store.listRecords({ deleted: true }),
-      Store.listRecords({})            /* 전부 — 「지금까지 쌓인 것」용 */
+      Store.listRecords({})            /* 지운 것 뺀 전부 */
     ]).then(function (r) {
       S.elders = r[0];
-      S.todayRecords = r[1];
-      S.deletedRecords = r[2];
-      S.allRecords = r[3] || [];
+      S.deletedRecords = r[1];
+      S.allRecords = r[2] || [];
+      /* 「오늘 남긴 것」을 **「만든 날」이 아니라 「올린 날」** 로 고른다.
+         예전엔 occurredAt 으로 걸러서, 1970년대 옛 사진을 저장하면
+         **저장은 됐는데 화면 어디에도 안 떴다.** 직원은 실패한 줄 안다.
+         (2026-07-29 개발·테스트 마스터 지적) */
+      S.todayRecords = S.allRecords.filter(uploadedToday);
     });
   }
 
@@ -478,7 +496,11 @@
       lines.push(v ? v : '(안 적음)');
     });
     lines.push('');
-    lines.push('— 화면 ' + window.innerWidth + '×' + window.innerHeight + ' · ' + APP_VERSION);
+    /* 주소도 함께 싣는다. 지금 배포처가 둘(Vercel·Pages)이고 캐시 정책이 달라,
+       같은 판 번호를 보면서 서로 다른 코드를 쓸 수 있다. 어느 쪽이었는지 남긴다.
+       (2026-07-29 개발 마스터 지적) */
+    lines.push('— 화면 ' + window.innerWidth + '×' + window.innerHeight +
+               ' · ' + APP_VERSION + ' · ' + location.host);
     return lines.join('\n');
   }
 
@@ -926,7 +948,15 @@
    */
   var DECADES = ['1950', '1960', '1970', '1980', '1990', '2000', '2010'];
 
+  /* 마지막으로 고른 연대를 기억한다.
+     「오늘」을 눌렀다가 되돌릴 때 골라 둔 연대를 되살리는 데 쓴다.
+     화면을 넘어가도 남는다 — 옛 사진은 대개 여러 장이 같은 시기라 그게 편하다. */
+  var lastPeriod = null;
+
   function periodPicker(host, hint, onChange) {
+    /* 밖에서 받은 값이 연대면 기억해 둔다 */
+    if (hint && hint.type === Model.PeriodHint.DECADE) lastPeriod = hint;
+
     var isOld = !!hint;
 
     /* 1단 — 오늘 / 예전 것 */
@@ -937,8 +967,13 @@
       b.textContent = p[0];
       if (isOld === p[1]) b.className = 'sel';
       b.addEventListener('click', function () {
-        /* 「예전 것」을 처음 누르면 어느 연대인지 아직 모른다 → 시기 모름으로 시작 */
-        onChange(p[1] ? { type: Model.PeriodHint.UNKNOWN } : null);
+        if (!p[1]) { onChange(null); return; }          /* 「오늘」 */
+        /* 「예전 것」 — 마지막에 고른 연대를 되살린다.
+           예전엔 무조건 unknown 으로 덮어써서, 「오늘」을 잘못 눌렀다가
+           되돌리면 골라 둔 연대가 날아갔다. (2026-07-29 테스트 마스터 지적)
+           ※ 기억은 화면 사이에도 남는다 — 옛 사진을 여러 장 넣을 때
+             대개 같은 시기라 오히려 편하다. */
+        onChange(hint || lastPeriod || { type: Model.PeriodHint.UNKNOWN });
       });
       row.appendChild(b);
     });
@@ -1029,7 +1064,17 @@
       function (id) { e.elderId = id; render(); });
     c.appendChild(sec1);
 
+    /* ── 언제 만든 것인가 (큐 화면과 같은 것을 여기에도 둔다) ──
+       이게 없으면 시기를 잘못 고른 뒤 **지우고 다시 올리는 수밖에** 없다.
+       이 화면의 존재 이유(위 주석)와 정면으로 어긋난다. */
     var eOld = !!e.occurredHint;
+    var secWhen = UI.el('div', 'sect');
+    secWhen.appendChild(UI.el('div', 'lbl', '언제 만드신 건가요?'));
+    periodPicker(secWhen, e.occurredHint, function (h) {
+      e.occurredHint = h; render();
+    });
+    c.appendChild(secWhen);
+
     var sec2 = UI.el('div', 'sect');
     sec2.appendChild(UI.el('div', 'lbl',
       (eOld ? '이 사진, 무엇이 기억나세요?' : '오늘 어떠셨나요?') +
@@ -1221,20 +1266,31 @@
     return Number(p[1]) + '월 ' + Number(p[2]) + '일';
   }
 
+  /* 언제 것인지 사람 말로. 옛 사진은 날짜가 없고 시기만 있다.
+     ⚠️ humanDay 를 직접 쓰면 옛 사진이 **빈칸**이 된다. periodLabel 이 둘 다 다룬다. */
+  function whenLabel(r) {
+    if (!r) return '';
+    if (r.occurredHint) return Model.periodLabel(r);   /* 「1970년대」·「환갑 무렵」 */
+    return humanDay(r.occurredAt);                     /* 「7월 29일」 */
+  }
+
   function renderPast() {
     var today = Model.todayLocal();
     var past = (S.allRecords || []).filter(function (r) { return r.occurredAt !== today; });
     if (!past.length) return;                 /* 오늘치뿐이면 아예 안 그린다 */
 
-    var days = {};
-    past.forEach(function (r) { days[r.occurredAt] = true; });
+    /* 몇 시기치인가.
+       ⚠️ 예전엔 days[r.occurredAt] 로 묶어서, 옛 사진이 전부 `undefined` 한 칸에
+          뭉쳐 **「1일치」라는 가짜 숫자**가 나왔다. 시기 라벨로 묶는다. */
+    var buckets = {};
+    past.forEach(function (r) { buckets[whenLabel(r) || '(모름)'] = true; });
 
     var c = UI.card();
     c.appendChild(UI.el('p', 'eyebrow', '지금까지 쌓인 것'));
 
     var st = UI.el('div', 'stat');
     st.appendChild(UI.el('span', null, past.length + '장'));
-    st.appendChild(UI.el('span', null, Object.keys(days).length + '일치'));
+    st.appendChild(UI.el('span', null, Object.keys(buckets).length + '가지 시기'));
     c.appendChild(st);
 
     var SHOW = 12;                            /* 너무 길어지지 않게 최근 것만 */
@@ -1246,11 +1302,11 @@
       b.type = 'button';
       b.className = 'item';
       var im = document.createElement('img');
-      im.alt = elderName(r.elderId) + ' 어르신의 작품 (' + humanDay(r.occurredAt) + ')';
+      im.alt = elderName(r.elderId) + ' 어르신의 작품 (' + whenLabel(r) + ')';
       b.appendChild(im);
       var cap = UI.el('div', 'cap');
       cap.appendChild(UI.el('div', 'nm', UI.esc(elderName(r.elderId))));
-      cap.appendChild(UI.el('div', 'mm', UI.esc(humanDay(r.occurredAt))));
+      cap.appendChild(UI.el('div', 'mm', UI.esc(whenLabel(r))));
       b.appendChild(cap);
       b.addEventListener('click', function () { openEdit(r); });
       g.appendChild(b);
@@ -1434,7 +1490,16 @@
    * 고칠 수 있어야 한다. 그것이 지우기를 줄이는 근본 해법이다.
    */
   function openEdit(rec) {
-    S.edit = { rec: rec, elderId: rec.elderId, note: rec.note || '', imgUrl: null };
+    S.edit = {
+      rec: rec,
+      elderId: rec.elderId,
+      note: rec.note || '',
+      /* 🔑 시기도 담는다. 이게 없으면 renderEdit 의 e.occurredHint 가
+         **항상 undefined** 라 옛 사진이 「오늘」로 보이고, 고칠 방법도 없다.
+         (2026-07-29 개발·테스트 마스터가 동시에 지적) */
+      occurredHint: rec.occurredHint || null,
+      imgUrl: null
+    };
     S.screen = 'edit';
     render();
     Store.getImage(rec.id).then(function (blob) {
@@ -1456,12 +1521,33 @@
     if (!e) return;
     if (!e.elderId) { UI.say('어느 어르신 것인지 골라주세요', { tone: 'warn' }); return; }
 
-    var changed = (e.elderId !== e.rec.elderId) || (e.note !== (e.rec.note || ''));
+    /* 시기는 객체라 === 로 못 비교한다. 문자열로 만들어 견준다. */
+    var hintNow  = JSON.stringify(e.occurredHint || null);
+    var hintWas  = JSON.stringify(e.rec.occurredHint || null);
+
+    var changed = (e.elderId !== e.rec.elderId)
+               || (e.note !== (e.rec.note || ''))
+               || (hintNow !== hintWas);
     if (!changed) { closeEdit(); return; }
 
     var r = e.rec;
     r.elderId = e.elderId;
     r.note = e.note;
+
+    /* 시기가 바뀌면 **날짜와 종류도 함께** 바뀐다. 셋은 한 몸이다.
+       · 「예전 것」으로 바꿈  → 날짜를 비우고 종류를 옛 사진으로
+       · 「오늘」로 되돌림      → 원래 날짜가 있으면 살리고, 없으면 오늘로 */
+    if (hintNow !== hintWas) {
+      r.occurredHint = e.occurredHint || null;
+      if (e.occurredHint) {
+        r.occurredAt = null;
+        r.kind = Model.Kind.OLD_PHOTO;
+      } else {
+        r.occurredAt = r.occurredAt || Model.todayLocal();
+        r.kind = Model.Kind.ARTWORK;
+      }
+    }
+
     r.updatedAt = Model.nowIso();
 
     Store.saveRecord(r)
