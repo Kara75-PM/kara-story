@@ -227,6 +227,52 @@
     }
   }
 
+  /* 카드 한 장을 빼면서 **주변 숫자까지 함께 맞춘다**
+   *
+   * 🔴 2026-07-30 — 여기가 비어 있었다.
+   *    사진 한 장이 안 열리면 `card.remove()` 만 했다. 그 결과:
+   *      · 그 시기에 카드가 0장이 돼도 **제목과 「3점」이 그대로 남았다** (유령 제목)
+   *      · 맨 위 「모두 11점」도 그대로라 **보이는 장수와 안 맞았다**
+   *    센터 와이파이가 흔들리는 시연장에서 그대로 보인다.
+   *    (개발·테스트 마스터가 같이 지적)
+   *
+   * 화면은 이렇게 평평하게 놓여 있다 — 카드는 자기 시기 제목의 **뒤에 오는 형제**다:
+   *      <p class="count">   <div class="era">   <div class="card">…  <div class="era">…
+   *    그래서 앞으로 거슬러 올라가며 가장 가까운 .era 를 찾는다. */
+  function dropCard(card){
+    if(!card || !card.parentNode) return;
+
+    /* ① 이 카드가 어느 시기에 속하나 — 앞으로 거슬러 올라간다 */
+    var era = null, p = card.previousElementSibling;
+    while(p){
+      if(p.classList.contains('era')){ era = p; break; }
+      p = p.previousElementSibling;
+    }
+
+    card.remove();
+
+    /* ② 그 시기에 카드가 몇 장 남았나 — 다음 .era 를 만나기 전까지 센다 */
+    if(era){
+      var left = 0, q = era.nextElementSibling;
+      while(q && !q.classList.contains('era')){
+        if(q.classList.contains('card')) left++;
+        q = q.nextElementSibling;
+      }
+      if(left === 0) era.remove();                 /* 유령 제목을 남기지 않는다 */
+      else {
+        var n = era.querySelector('.era-n');
+        if(n) n.textContent = left + '점';
+      }
+    }
+
+    /* ③ 맨 위 「모두 N점」도 보이는 것과 맞춘다 */
+    var total = viewEl.querySelectorAll('.card').length;
+    var cnt = viewEl.querySelector('.count');
+    if(cnt) cnt.textContent = '모두 ' + total + '점';
+
+    checkEmpty();
+  }
+
   /* ── 사진 받기 ──────────────────────────────────────────────
    * 🔴 예전에는 **창고에 직접** 손을 뻗었다:
    *      fetch(창고주소 + 사진경로, {apikey: 공개열쇠})   ← 창고를 직접 불렀다
@@ -254,7 +300,7 @@
   function loadPhoto(recId, imgEl){
     var card = imgEl.closest('.card');
     signedUrl(recId, true).then(function(u){
-      if(!u){ if(card) card.remove(); checkEmpty(); return; }  /* 못 받으면 그 카드는 뺀다 */
+      if(!u){ dropCard(card); return; }   /* 못 받으면 그 카드와 주변 숫자를 함께 뺀다 */
       var sk = imgEl.parentNode.querySelector('.skel');
       if(sk) sk.remove();
       imgEl.src = u;                    /* 브라우저가 직접 받는다 — blob 을 안 거친다 */
