@@ -177,6 +177,37 @@
     return Number(p[0]) * 100 + Number(p[1]);
   }
 
+  /* 카드 안에 쓸 날짜.
+     시기 묶음 제목에 이미 「1970년대」·「2026년 7월」이 있으므로,
+     여기서는 **겹치지 않는 만큼만** 쓴다.
+     ⚠️ 옛 사진(시기 힌트)은 여기서 빈칸을 돌려준다 — 그래서 제목이 유일한 단서다. */
+  function cardWhen(r){
+    if(!r) return '';
+    if(r.occurred_hint) return '';                   /* 제목이 이미 말했다 */
+    if(!r.occurred_at) return '';
+    var p = String(r.occurred_at).split('-');
+    return p.length === 3 ? Number(p[1])+'월 '+Number(p[2])+'일' : '';
+  }
+
+  /* 시기 제목을 붙일까
+   *
+   * 원래 규칙은 「시기가 하나뿐이면 안 붙인다」였다.
+   * 이유는 **「모두 3점」 밑에 「2026년 7월 · 3점」이 붙으면 같은 말이 두 번**이라서다.
+   *
+   * 🔴 2026-07-30 정정 — 그 이유는 **카드에 날짜가 뜰 때만** 성립한다.
+   *    옛 사진만 있으면(예: 1970년대 3장) 시기 칸이 1개라 제목이 안 그려지는데,
+   *    카드 날짜도 빈칸이라 **골라둔 「1970년대」가 화면 어디에도 안 나왔다.**
+   *    직원이 고른 값을 가족이 볼 수 없었다. (개발 마스터 발견, 실제 값으로 재현)
+   *
+   * 그래서 규칙을 이렇게 바꾼다:
+   *   **카드가 시기를 못 보여주면, 한 칸뿐이라도 제목을 붙인다.**
+   */
+  function needEras(groups){
+    if(!groups || !groups.length) return false;
+    if(groups.length > 1) return true;               /* 나눌 것이 있으면 붙인다 */
+    return !cardWhen(groups[0].items[0]);            /* 카드가 비면 제목이 유일한 단서 */
+  }
+
   function groupByPeriod(recs){
     var map = {}, order = [];
     recs.forEach(function(r){
@@ -250,25 +281,12 @@
       return;
     }
 
-    /* 카드 안에 쓸 날짜.
-       시기 묶음 제목에 이미 「1970년대」·「2026년 7월」이 있으므로,
-       여기서는 **겹치지 않는 만큼만** 쓴다. */
-    function cardWhen(r){
-      if(r.occurred_hint) return '';                 /* 제목이 이미 말했다 */
-      if(!r.occurred_at) return '';
-      var p = String(r.occurred_at).split('-');
-      return p.length === 3 ? Number(p[1])+'월 '+Number(p[2])+'일' : '';
-    }
-
     var groups = groupByPeriod(recs);
     var flat = [];                                   /* 그린 순서 — data-i 가 이걸 가리킨다 */
     var html = '<p class="count">모두 ' + recs.length + '점</p>';
 
-    /* 시기가 하나뿐이면 칸 제목을 안 붙인다.
-       지금 대부분의 어르신이 여기 해당한다(센터에서 이번 달에 올린 것뿐).
-       그때 「모두 3점」 바로 밑에 「2026년 7월 · 3점」이 붙으면 같은 말이 두 번이다.
-       연대기는 **나눌 것이 있을 때** 나타난다. */
-    var showEras = groups.length > 1;
+    /* 규칙과 이유는 needEras() 에 적어 두었다 */
+    var showEras = needEras(groups);
 
     groups.forEach(function(g){
       if(showEras) html += '<div class="era">' +

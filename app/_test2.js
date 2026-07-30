@@ -109,7 +109,8 @@ eq(lastCanvas.height, 1000, '축소 · 높이');
  *   이게 어제 occurredAt 을 고친 것의 출구다. */
 (function () {
   const vsrc = fs.readFileSync('./view.html', 'utf8');
-  const names = ['bucketKey', 'bucketLabel', 'bucketRank', 'groupByPeriod'];
+  const names = ['bucketKey', 'bucketLabel', 'bucketRank', 'groupByPeriod',
+                 'cardWhen', 'needEras'];
   let body = '';
   for (const n of names) {
     const s0 = vsrc.indexOf('function ' + n + '(');
@@ -123,7 +124,7 @@ eq(lastCanvas.height, 1000, '축소 · 높이');
     body += vsrc.slice(s0, i) + ';\n';
   }
   const F = new Function(
-    body + 'return { bucketKey, bucketLabel, bucketRank, groupByPeriod };')();
+    body + 'return { bucketKey, bucketLabel, bucketRank, groupByPeriod, cardWhen, needEras };')();
 
   function ok(cond, label) {
     if (cond) pass++;
@@ -157,6 +158,36 @@ eq(lastCanvas.height, 1000, '축소 · 높이');
   ok(g[g.length - 1].items.some(r => r.id === 'j'), '연대기 · 날짜도 시기도 없으면 모름 칸');
   /* 🔑 이 한 줄이 핵심이다 — 옛 사진이 「올해」로 섞이면 실패한다 */
   ok(!g[0].items.some(r => r.occurred_hint), '연대기 · 옛 사진이 올해 칸에 섞이지 않는다');
+
+  /* ── 시기 제목을 붙일까 (2026-07-30 추가) ──────────────────
+   * 🔴 이 시험이 없어서 결함이 하루 동안 살아 있었다.
+   *
+   * 원래 규칙은 「시기가 하나뿐이면 제목을 안 붙인다」였다.
+   * 이유는 「모두 3점」 밑에 「2026년 7월 · 3점」이면 같은 말이 두 번이라서.
+   * **그런데 그 이유는 카드에 날짜가 뜰 때만 성립한다.**
+   * 옛 사진만 있으면 카드 날짜도 빈칸이라 **골라둔 시기가 화면에서 사라졌다.**
+   *
+   * 잡는 것: 「직원이 고른 시기를 가족이 볼 수 있는가」 */
+  const anyEra = recs => {
+    const g = F.groupByPeriod(recs);
+    /* 제목이 뜨거나, 카드에 날짜가 뜨거나 — 둘 중 하나는 있어야 한다 */
+    return F.needEras(g) || recs.some(r => F.cardWhen(r));
+  };
+
+  ok(anyEra([1, 2, 3].map(i => ({ id: 'a' + i, occurred_hint: { type: 'decade', value: '1970' } }))),
+     '시기 제목 · 1970년대만 있어도 시기가 보인다');
+  ok(anyEra([1, 2].map(i => ({ id: 'u' + i, occurred_hint: { type: 'unknown' } }))),
+     '시기 제목 · 「모름」만 있어도 시기가 보인다');
+  ok(anyEra([1, 2].map(i => ({ id: 'e' + i, occurred_hint: { type: 'event', value: '환갑 무렵' } }))),
+     '시기 제목 · 「환갑 무렵」만 있어도 시기가 보인다');
+  ok(anyEra([{ id: 'c1', occurred_at: '2026-07-30' }]),
+     '시기 제목 · 오늘 것만 있어도 카드 날짜로 보인다');
+
+  /* 🔑 반대쪽도 지킨다 — 날짜가 카드에 뜨면 제목은 붙이지 않는다.
+     이게 없으면 「전부 붙이자」로 되돌려도 위 4건이 통과해버린다. */
+  ok(F.needEras(F.groupByPeriod(
+       [1, 2, 3].map(i => ({ id: 'c' + i, occurred_at: '2026-07-30' })))) === false,
+     '시기 제목 · 오늘 것만일 때는 제목을 안 붙인다 (같은 말 두 번 방지)');
 })();
 
 console.log('');

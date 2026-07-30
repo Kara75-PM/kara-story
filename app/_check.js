@@ -191,6 +191,37 @@ try {
   bad++;
 }
 
+/* 가족 화면이 시기 제목 규칙을 **함수로** 물어보는가
+ *
+ * 🔴 2026-07-30 — 여기서 결함이 하루 살아 있었다.
+ *    `render()` 안에 `groups.length > 1` 을 직접 적어 두었더니,
+ *    「옛 사진만 있으면 시기가 화면에서 사라진다」를 아무도 못 봤다.
+ *    규칙을 `needEras()` 로 꺼내 시험이 붙을 수 있게 만들었고(_test2.js),
+ *    이 검사는 **누가 다시 인라인으로 되돌리는 것**을 막는다.
+ *
+ * ⚠️ 규칙을 함수 밖에서 다시 쓰면 시험이 그 코드를 안 본다. */
+try {
+  const viewSrc = require('fs').readFileSync(
+    require('path').join(__dirname, 'view.html'), 'utf8');
+  const hasFn   = /function\s+needEras\s*\(/.test(viewSrc);
+  const usesFn  = /showEras\s*=\s*needEras\s*\(/.test(viewSrc);
+  /* 호출부에 규칙을 다시 적어 두면(= 함수를 안 거치면) 잡는다 */
+  const inlined = /showEras\s*=\s*groups\.length/.test(viewSrc);
+
+  if (!hasFn || !usesFn || inlined) {
+    console.log('X view.html 의 시기 제목 규칙이 needEras() 를 안 거친다');
+    if (!hasFn)  console.log('  — needEras() 정의가 없다');
+    if (!usesFn) console.log('  — showEras 가 needEras() 를 안 부른다');
+    if (inlined) console.log('  — 규칙이 호출부에 다시 적혀 있다 (시험이 못 본다)');
+    bad++;
+  } else {
+    console.log('· 시기 제목 규칙이 needEras() 한곳에 있음 ✓');
+  }
+} catch (e) {
+  console.log('X 시기 제목 규칙 검사 실패 — ' + e.message);
+  bad++;
+}
+
 /* 홈 화면의 두 목록이 **같은 기준**을 쓰는가
  *
  * 🔴 2026-07-30 개발 마스터가 잡은 것.
