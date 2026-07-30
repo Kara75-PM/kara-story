@@ -2,7 +2,11 @@
    브라우저 없이 돌릴 수 있는 최소한의 안전망. */
 const fs = require('fs');
 
-function read(f) { return fs.readFileSync(f, 'utf8'); }
+/* 어디서 돌려도 죽지 않게 __dirname 기준으로 읽는다.
+   2026-07-30: 저장소 루트에서 `node app/_check.js` 하면 여기서 죽었다(실측).
+   훅이나 CI 는 cwd 가 다르다. */
+const path = require('path');
+function read(f) { return fs.readFileSync(path.join(__dirname, f), 'utf8'); }
 
 /* 각 모듈이 실제로 내보내는 이름 */
 function exportsOf(src, globalName) {

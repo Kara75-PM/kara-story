@@ -35,7 +35,7 @@ require('./js/image.js');
 /* drawScaled 는 내부 함수라 밖에서 못 부른다.
    image.js 원문에서 계산 부분만 떼어내 평가한다. */
 const fs = require('fs');
-const src = fs.readFileSync('./js/image.js', 'utf8');
+const src = fs.readFileSync(require('path').join(__dirname, 'js', 'image.js'), 'utf8');
 function grab(name) {
   const m = src.match(new RegExp('function ' + name + '\\([\\s\\S]*?\\n  \\}'));
   if (!m) { console.log('✗ ' + name + ' 를 찾지 못함'); process.exit(1); }
@@ -108,23 +108,96 @@ eq(lastCanvas.height, 1000, '축소 · 높이');
  *   날짜가 없는 기록이 「올해」로 뭉치지 않고 제 시기에 놓이는가.
  *   이게 어제 occurredAt 을 고친 것의 출구다. */
 (function () {
-  const vsrc = fs.readFileSync('./view.html', 'utf8');
-  const names = ['bucketKey', 'bucketLabel', 'bucketRank', 'groupByPeriod',
+  const vsrc = fs.readFileSync(require('path').join(__dirname, 'view.html'), 'utf8');
+
+  /* 2026-07-30 — 중괄호를 그냥 세면 **문자열 안의 중괄호까지 센다.**
+   *    parseHint 에 `s.charAt(0) === '{'` 를 넣자마자 추출이 통째로 깨졌다.
+   *    (개발 마스터가 미리 경고한 함정이다)
+   *    그래서 세기 전에 **문자열과 주석을 같은 길이의 공백으로 덮는다.**
+   *    자리 수가 그대로라 원문에서 잘라내는 위치는 안 바뀐다. */
+  function maskLiterals(src) {
+    const out = src.split('');
+    const NLC = String.fromCharCode(10);
+    const BT  = String.fromCharCode(96);
+    const BS  = String.fromCharCode(92);
+    const blank = j => { if (src[j] !== NLC) out[j] = ' '; };
+    /* 앞의 뜻있는 글자를 보고 「나눗셈이냐 정규식이냐」를 가른다.
+       (, = : [ ! & | ? { ; } 뒤의 / 는 정규식이다 — 흔히 쓰는 판별법이다. */
+    const REGEX_AFTER = '(,=:[!&|?{;}+-*%~^';
+    let prev = '';
+    let i = 0;
+    while (i < src.length) {
+      const c = src[i];
+      if (c === '/' && src[i + 1] === '/') {
+        while (i < src.length && src[i] !== NLC) { blank(i); i++; }
+        continue;
+      }
+      if (c === '/' && src[i + 1] === '*') {
+        blank(i); blank(i + 1); i += 2;
+        while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) { blank(i); i++; }
+        if (i < src.length) { blank(i); blank(i + 1); i += 2; }
+        continue;
+      }
+      /* 정규식 리터럴 — 안에 따옴표나 중괄호가 있어도 코드가 아니다.
+         2026-07-30: esc() 의 /[&<>"]/g 가 여기서 안 걸려 덮개가 통째로 어긋났었다. */
+      if (c === '/' && REGEX_AFTER.indexOf(prev) >= 0) {
+        blank(i); i++;
+        let inClass = false;
+        while (i < src.length) {
+          const d = src[i];
+          if (d === BS) { blank(i); i++; if (i < src.length) { blank(i); i++; } continue; }
+          if (d === '[') inClass = true;
+          else if (d === ']') inClass = false;
+          else if (d === '/' && !inClass) { blank(i); i++; break; }
+          else if (d === NLC) break;                 /* 한 줄을 넘으면 정규식이 아니었다 */
+          blank(i); i++;
+        }
+        while (i < src.length && /[a-z]/.test(src[i])) { blank(i); i++; }   /* g, i, m … */
+        prev = '/';
+        continue;
+      }
+      if (c === '"' || c === "'" || c === BT) {
+        const q = c; blank(i); i++;
+        while (i < src.length && src[i] !== q) {
+          if (src[i] === BS) { blank(i); i++; if (i < src.length) { blank(i); i++; } continue; }
+          blank(i); i++;
+        }
+        if (i < src.length) { blank(i); i++; }
+        prev = q;
+        continue;
+      }
+      if (c.trim()) prev = c;
+      i++;
+    }
+    return out.join('');
+  }
+  const mask = maskLiterals(vsrc);
+
+  /* RANK_UNKNOWN 은 함수 밖의 상수다 — 값을 여기 베껴 적으면 원본이 바뀔 때 어긋난다.
+     원문에서 그 줄을 그대로 가져온다. */
+  const rankConst = (vsrc.match(/var[ ]+RANK_UNKNOWN[ ]*=[^;]+;/) || [])[0];
+  if (!rankConst) { fail++; console.log('X view.html 에서 RANK_UNKNOWN 을 찾지 못함'); return; }
+
+  const names = ['parseHint', 'decadeOf', 'monthOf',
+                 'bucketKey', 'bucketLabel', 'bucketRank', 'groupByPeriod',
                  'cardWhen', 'needEras'];
-  let body = '';
+  let body = rankConst + String.fromCharCode(10);
   for (const n of names) {
     const s0 = vsrc.indexOf('function ' + n + '(');
-    if (s0 < 0) { fail++; console.log('✗ view.html 에서 ' + n + ' 를 찾지 못함'); return; }
-    /* 중괄호 균형으로 함수 끝을 찾는다 */
-    let d = 0, i = vsrc.indexOf('{', s0);
-    for (; i < vsrc.length; i++) {
-      if (vsrc[i] === '{') d++;
-      else if (vsrc[i] === '}') { d--; if (d === 0) { i++; break; } }
+    if (s0 < 0) { fail++; console.log('X view.html 에서 ' + n + ' 를 찾지 못함'); return; }
+    let d = 0, i = mask.indexOf('{', s0);              /* 덮은 사본에서 센다 */
+    for (; i < mask.length; i++) {
+      if (mask[i] === '{') d++;
+      else if (mask[i] === '}') { d--; if (d === 0) { i++; break; } }
     }
-    body += vsrc.slice(s0, i) + ';\n';
+    const piece = vsrc.slice(s0, i);                   /* 자르는 건 원문에서 */
+    try { new Function(piece); }                       /* 어느 함수가 깨졌는지 이름을 남긴다 */
+    catch (e) { fail++; console.log('X ' + n + ' 를 떼어내지 못함 — ' + e.message); return; }
+    body += piece + ';' + String.fromCharCode(10);
   }
-  const F = new Function(
-    body + 'return { bucketKey, bucketLabel, bucketRank, groupByPeriod, cardWhen, needEras };')();
+  let F;
+  try { F = new Function(body + 'return {' + names.join(',') + '};')(); }
+  catch (e) { fail++; console.log('X 떼어낸 함수들을 못 돌림 — ' + e.message); return; }
 
   function ok(cond, label) {
     if (cond) pass++;
@@ -158,6 +231,79 @@ eq(lastCanvas.height, 1000, '축소 · 높이');
   ok(g[g.length - 1].items.some(r => r.id === 'j'), '연대기 · 날짜도 시기도 없으면 모름 칸');
   /* 🔑 이 한 줄이 핵심이다 — 옛 사진이 「올해」로 섞이면 실패한다 */
   ok(!g[0].items.some(r => r.occurred_hint), '연대기 · 옛 사진이 올해 칸에 섞이지 않는다');
+
+  /* ── 망가진 값이 화면과 정렬을 오염시키지 않는다 (2026-07-30 추가) ──
+   * 테스트 마스터가 실제 값으로 재현했던 것들이다:
+   *   {type:'decade'} (value 없음) 한 건이 섞이면
+   *     · 칸 제목이 「undefined년대」로 뜨고
+   *     · 정렬값이 NaN 이 되어 연대기 전체 순서가 무너졌다
+   *
+   * 지금은 bucketKey 가 뿌리에서 「모름」으로 보낸다.
+   * 잡는 것: 「모르는 것을 아는 척하지 않는가」 */
+  const BROKEN = [
+    ['value 없는 연대',     { occurred_hint: { type: 'decade' } }],
+    ['value 가 null',       { occurred_hint: { type: 'decade', value: null } }],
+    ['숫자가 아닌 연대',    { occurred_hint: { type: 'decade', value: '19x0' } }],
+    ['공백만 든 연대',      { occurred_hint: { type: 'decade', value: '  ' } }],
+    ['말이 안 되는 연대',   { occurred_hint: { type: 'decade', value: '3500' } }],
+    ['날짜가 잘림',         { occurred_at: '2026' }],
+    ['없는 달',             { occurred_at: '2026-13-01' }],
+    ['날짜가 글자',         { occurred_at: 'garbage' }],
+    ['깨진 JSON 부스러기',  { occurred_hint: '{"type":"decade","value":"1970"' }],
+    ['빈 문자열 힌트',      { occurred_hint: '' }]
+  ];
+  BROKEN.forEach(function (pair) {
+    const label = pair[0], rec = pair[1];
+    const k = F.bucketKey(rec);
+    const text = F.bucketLabel(k);
+    const rank = F.bucketRank(k);
+    ok(isFinite(rank), '망가진 값 · ' + label + ' → 정렬값이 숫자다 (받음: ' + rank + ')');
+    ok(!/undefined|null|NaN/.test(text),
+       '망가진 값 · ' + label + ' → 화면에 부스러기가 안 뜬다 (받음: "' + text + '")');
+  });
+
+  /* 🔑 핵심 한 줄 — 망가진 1건이 나머지 순서를 건드리면 안 된다.
+     이게 없으면 위 시험들이 전부 통과해도 정렬은 여전히 무너질 수 있다. */
+  {
+    const good = [
+      { id: 'a', occurred_at: '2026-07-30' },
+      { id: 'b', occurred_at: '2020-01-15' },
+      { id: 'c', occurred_hint: { type: 'decade', value: '1970' } }
+    ];
+    const withBroken = good.concat([{ id: 'x', occurred_hint: { type: 'decade' } }]);
+    const seq = g => F.groupByPeriod(g).map(x => x.label)
+                      .filter(l => l !== '시기를 알 수 없는 것').join(' > ');
+    ok(seq(withBroken) === seq(good),
+       '망가진 값 · 1건이 섞여도 나머지 순서가 그대로다');
+  }
+
+  /* 「옛 맨 글자」는 살려야 한다 — 부스러기와 구분되는가 */
+  ok(F.bucketLabel(F.bucketKey({ occurred_hint: '환갑 무렵' })) === '환갑 무렵',
+     '망가진 값 · 옛 맨 글자 힌트는 사건 이름으로 살아남는다');
+
+  /* 🔑 뿌리 검사가 실제로 무엇을 막는가 — 이 한 줄이 그 답이다.
+   *
+   * bucketKey 가 망가진 값을 「모름」으로 안 보내면
+   *   {type:'decade'}          → 'Dundefined'
+   *   {type:'decade', value:''} → 'D'
+   *   {type:'unknown'}          → 'U'
+   * 셋이 **다른 칸**이 되는데 이름은 셋 다 「시기를 알 수 없는 것」이다.
+   * → 화면에 같은 제목이 세 번 나온다. (실제로 재현해서 확인함)
+   *
+   * 바깥 겹(bucketLabel·bucketRank)의 방어만으로는 이걸 못 막는다.
+   * 그래서 이 시험이 필요하다. */
+  {
+    const messy = [
+      { id: 'a', occurred_at: '2026-07-30' },
+      { id: 'x', occurred_hint: { type: 'decade' } },
+      { id: 'y', occurred_hint: { type: 'decade', value: '' } },
+      { id: 'z', occurred_hint: { type: 'unknown' } }
+    ];
+    const labels = F.groupByPeriod(messy).map(g => g.label);
+    const dup = labels.filter((l, i) => labels.indexOf(l) !== i);
+    ok(dup.length === 0,
+       '망가진 값 · 같은 이름의 시기 칸이 여러 개 생기지 않는다 (받음: ' + labels.join(' | ') + ')');
+  }
 
   /* ── 시기 제목을 붙일까 (2026-07-30 추가) ──────────────────
    * 🔴 이 시험이 없어서 결함이 하루 동안 살아 있었다.

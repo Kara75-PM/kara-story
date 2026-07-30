@@ -145,35 +145,102 @@
    *   · 원칙 4 「빈칸은 초대장이다」 — 가족이 올리는 기능과 한 몸이다
    */
 
-  /* 이 기록이 어느 시기 칸에 들어가나 — 묶는 열쇠 */
-  function bucketKey(r){
-    var h = r.occurred_hint;
-    if(h){
-      if(typeof h === 'string'){ try{ h = JSON.parse(h); }catch(e){ h = {type:'event', value:h}; } }
-      if(h && h.type === 'decade') return 'D' + h.value;      /* 1970년대 */
-      if(h && h.type === 'event')  return 'E' + (h.value||''); /* 환갑 무렵 */
-      return 'U';                                             /* 시기 모름 */
+  /* 시기 힌트를 객체로 편다.
+     DB 는 글자로 준다(`store-supa` 가 JSON 으로 담아 보내므로).
+     옛 데이터가 맨 글자일 수도 있어 그때는 「사건」으로 살린다. */
+  function parseHint(h){
+    if(!h) return null;
+    if(typeof h === 'string'){
+      var s = h.trim();
+      try{
+        var o = JSON.parse(s);
+        return (o && typeof o === 'object') ? o : {type:'event', value:s};
+      }catch(e){
+        /* 🔑 「옛 맨 글자」와 「깨진 JSON」을 갈라야 한다.
+           맨 글자(예: "환갑 무렵")는 사건 이름으로 살린다.
+           그런데 `{` 로 시작하다 잘린 것은 **JSON 이 깨진 것**이므로,
+           그대로 살리면 `{"type":"decade","value":"1970"` 이 통째로
+           **시기 제목이 되어 화면에 뜬다.** 그건 이름이 아니라 부스러기다. */
+        if(s.charAt(0) === '{' || s.charAt(0) === '[') return null;   /* → 「모름」 */
+        return {type:'event', value:s};
+      }
     }
-    if(r.occurred_at) return 'M' + String(r.occurred_at).slice(0,7);  /* 2026-07 */
-    return 'U';
+    return (typeof h === 'object') ? h : null;
   }
 
-  /* 그 칸을 사람 말로 */
+  /* 🔴 2026-07-30 — 망가진 값을 **여기서** 걸러낸다.
+   *
+   * 테스트 마스터가 실제 값으로 재현한 것:
+   *   {type:'decade'} (value 없음) 한 건이 섞이면
+   *     · 칸 제목이 **「undefined년대」** 로 뜨고
+   *     · 정렬값이 **NaN** 이 되어 **연대기 전체 순서가 무너졌다**
+   *       (2020년 1월이 1970년대 아래로 밀렸다)
+   *
+   * 라벨과 정렬 두 곳을 각각 막을 수도 있었지만, **뿌리에서 막는 편**이 낫다 —
+   * 여기서 「모름」으로 보내면 라벨·정렬·묶기가 한 번에 안전해지고,
+   * 화면에는 **「시기를 알 수 없는 것」** 이라는 **정직한 말**이 남는다.
+   *
+   * ⚠️ 지금 앱 UI 로는 이런 값이 안 만들어진다(연대 목록이 고정이라).
+   *    위험은 ①손으로 넣은 DB 행 ②앞으로 만들 자유입력 ③옛 데이터다. */
+  function decadeOf(v){
+    var n = Number(String(v == null ? '' : v).trim());
+    /* 사람이 살아온 시기로 말이 되는 범위만 받는다 */
+    return (isFinite(n) && n >= 1900 && n <= 2100) ? String(Math.floor(n)) : null;
+  }
+  function monthOf(v){
+    var m = String(v == null ? '' : v).slice(0, 7).match(/^(\d{4})-(\d{2})$/);
+    if(!m) return null;
+    var mm = Number(m[2]);
+    return (mm >= 1 && mm <= 12) ? m[1] + '-' + m[2] : null;
+  }
+
+  /* 이 기록이 어느 시기 칸에 들어가나 — 묶는 열쇠 */
+  function bucketKey(r){
+    var h = parseHint(r && r.occurred_hint);
+    if(h){
+      if(h.type === 'decade'){
+        var d = decadeOf(h.value);
+        return d ? 'D' + d : 'U';                             /* 망가졌으면 「모름」 */
+      }
+      if(h.type === 'event'){
+        var t = String(h.value == null ? '' : h.value).trim();
+        return t ? 'E' + t : 'U';
+      }
+      return 'U';                                             /* 시기 모름 */
+    }
+    var mo = monthOf(r && r.occurred_at);
+    return mo ? 'M' + mo : 'U';                               /* 2026-07 */
+  }
+
+  /* 그 칸을 사람 말로.
+     ⚠️ bucketKey 가 이미 걸렀지만, 누가 이 함수를 따로 부를 수도 있어 한 겹 더 막는다. */
   function bucketLabel(key){
-    if(key === 'U') return '시기를 알 수 없는 것';
-    if(key.charAt(0) === 'D') return key.slice(1) + '년대';
+    if(!key || key === 'U') return '시기를 알 수 없는 것';
+    if(key.charAt(0) === 'D'){
+      var d = decadeOf(key.slice(1));
+      return d ? d + '년대' : '시기를 알 수 없는 것';
+    }
     if(key.charAt(0) === 'E') return key.slice(1) || '어느 무렵';
-    var p = key.slice(1).split('-');
+    var mo = monthOf(key.slice(1));
+    if(!mo) return '시기를 알 수 없는 것';
+    var p = mo.split('-');
     return p[0] + '년 ' + Number(p[1]) + '월';
   }
 
   /* 최근이 위로. 「시기 모름」은 맨 아래 —
-     직원 화면(store-idb)이 빈 날짜를 아래로 보내는 것과 같은 규칙이다. */
+     직원 화면(store-idb)이 빈 날짜를 아래로 보내는 것과 같은 규칙이다.
+     🔑 **어떤 입력에도 NaN 을 내지 않는다** — NaN 하나가 정렬 전체를 오염시킨다. */
+  var RANK_UNKNOWN = -1e9;
   function bucketRank(key){
-    if(key === 'U') return -1e9;
-    if(key.charAt(0) === 'D') return Number(key.slice(1)) * 100;      /* 1970 → 197000 */
-    if(key.charAt(0) === 'E') return -1e8;                            /* 사건은 연대 아래 */
-    var p = key.slice(1).split('-');
+    if(!key || key === 'U') return RANK_UNKNOWN;
+    if(key.charAt(0) === 'D'){
+      var d = decadeOf(key.slice(1));
+      return d ? Number(d) * 100 : RANK_UNKNOWN;              /* 1970 → 197000 */
+    }
+    if(key.charAt(0) === 'E') return -1e8;                    /* 사건은 연대 아래 */
+    var mo = monthOf(key.slice(1));
+    if(!mo) return RANK_UNKNOWN;
+    var p = mo.split('-');
     return Number(p[0]) * 100 + Number(p[1]);
   }
 

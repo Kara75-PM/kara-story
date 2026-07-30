@@ -174,15 +174,34 @@
   }
 
   /* 시기를 사람이 읽는 말로 */
+  /* 🔴 2026-07-30 — 망가진 값이 화면에 그대로 나가던 것을 막는다.
+   *
+   *   {type:'decade'} (value 없음)  →  전엔 **「undefined년대」**
+   *   {type:'decade', value:null}   →  전엔 **「null년대」**
+   *   occurredAt:'2026'             →  전엔 **「2026년 NaN월 NaN일」**
+   *
+   * 가족 화면(view.html)도 같은 종류로 당했고 거기선 정렬까지 무너졌다.
+   * 여기(직원 화면)는 정렬은 안 쓰지만 **글자가 그대로 눈에 보인다.**
+   * 모르면 지어내지 말고 **「시기 모름」이라고 정직하게** 말한다. */
   function periodLabel(record) {
+    if (!record) return '';
     if (record.occurredHint) {
       var h = record.occurredHint;
-      if (h.type === PeriodHint.DECADE) return h.value + '년대';
-      if (h.type === PeriodHint.EVENT)  return h.value;
+      if (h && h.type === PeriodHint.DECADE) {
+        var n = Number(String(h.value == null ? '' : h.value).trim());
+        return (isFinite(n) && n >= 1900 && n <= 2100)
+          ? Math.floor(n) + '년대' : '시기 모름';
+      }
+      if (h && h.type === PeriodHint.EVENT) {
+        var t = String(h.value == null ? '' : h.value).trim();
+        return t || '시기 모름';
+      }
       return '시기 모름';
     }
     if (!record.occurredAt) return '';
-    var d = record.occurredAt.split('-');
+    var d = String(record.occurredAt).split('-');
+    /* 날짜 모양이 아니면 원문을 그대로 보여준다 — NaN 을 만들지 않는다 */
+    if (d.length !== 3 || !/^\d{4}$/.test(d[0])) return String(record.occurredAt);
     return d[0] + '년 ' + Number(d[1]) + '월 ' + Number(d[2]) + '일';
   }
 
