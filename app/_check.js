@@ -250,6 +250,43 @@ try {
   }
 }
 
+/* 판 번호 둘이 **짝이 맞는가**
+ *
+ * 🔴 2026-07-31 — 내가 직접 어긋내고 발견했다.
+ *    번호가 두 군데 있다:
+ *      · `app.js` 의 APP_VERSION  → 화면·의견에 찍히는 「이 앱은 몇 판인가」
+ *      · html 의 `?v=`            → 브라우저가 옛 파일을 버리게 하는 캐시 번호
+ *    R-79 정리 중에 `?v=` 만 22→23 으로 올리고 APP_VERSION 을 두고 왔다.
+ *    그러면 **새 코드가 자기를 옛 판이라고 말한다** — 밖에서 실측할 때
+ *    「배포가 안 됐나?」로 오독하게 된다. 실제로 이 주에 그 오독을 했다.
+ *
+ * ⚠️ 이건 계산 시험(_test·_test2)이 절대 못 보는 종류다. 파일 사이의 약속이라서다. */
+{
+  const mv = files.app.match(/APP_VERSION\s*=\s*'v(\d+)'/);
+  if (!mv) {
+    console.log('X app.js 에서 APP_VERSION 을 찾지 못함');
+    bad++;
+  } else {
+    const appV = mv[1];
+    const pages = ['index.html', 'view.html'];
+    const off = [];
+    for (const p of pages) {
+      let src;
+      try { src = read(p); } catch (e) { console.log('X ' + p + ' 을 읽지 못했다'); bad++; continue; }
+      const nums = new Set((src.match(/\?v=(\d+)/g) || []).map(s => s.slice(3)));
+      if (!nums.size) { off.push(p + ' 에 ?v= 가 없음'); continue; }
+      for (const n of nums) if (n !== appV) off.push(p + ' 의 ?v=' + n);
+    }
+    if (off.length) {
+      console.log('X 판 번호가 어긋난다 — APP_VERSION 은 v' + appV + ' 인데: ' + off.join(', '));
+      console.log('  둘을 함께 올린다. 하나만 올리면 앱이 자기 판을 틀리게 말한다.');
+      bad++;
+    } else {
+      console.log('· 판 번호 짝 맞음 (APP_VERSION = ?v= = v' + appV + ') ✓');
+    }
+  }
+}
+
 console.log('');
 console.log(bad === 0 ? '✅ 참조 문제 없음' : '❌ 문제 ' + bad + '건');
 process.exit(bad === 0 ? 0 : 1);

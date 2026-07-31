@@ -40,7 +40,9 @@
   ];
 
   var TRASH_DAYS = 30;                      // 지운 것을 이 기간 뒤 완전 삭제
-  var APP_VERSION = 'v22';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+  var APP_VERSION = 'v23';                  // 의견에 함께 실어 어느 판인지 알 수 있게
+                                            // ⚠️ index.html·view.html 의 ?v= 와 **짝을 맞춰** 올린다.
+                                            // 하나만 올리면 앱이 자기 판 번호를 틀리게 말한다 (2026-07-31)
 
   /* 처음 열었을 때 한 번만 보여주는 안내를 기억해 둘 자리 */
   var SEEN_KEY = 'geurium.seenIntro.v1';
